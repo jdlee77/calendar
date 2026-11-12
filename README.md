@@ -10,6 +10,15 @@ No sign-up and no server. Everything you add stays in your own browser.
 
 - **Year at a glance.** All 12 months, with a box for every day. Event titles appear in the boxes. Use the arrows or the year menu to go to any year.
 - **Day view.** Click any day for an hour-by-hour schedule. Add, edit, and delete events with a title, start and end times or all day, a type, and notes.
+- **Repeating events:**
+  - **Patterns:** daily, every weekday, weekly on chosen days, monthly (by date, or by "2nd Tuesday" or "last Friday"), or yearly, every N days, weeks, months, or years.
+  - **Ending:** on a date, after a number of times, or never.
+  - **Changes:** edit only one date or the whole series. Delete one date, that date and everything after it, or the whole series.
+- **Holiday warnings:**
+  - **Where you see them:** events that land on a holiday are flagged on the year view and in the day view. A banner lists them all, with one-click "move to the workday before or after" and "keep it" buttons.
+  - **Repeating events:** each series can keep holiday dates and warn you, skip them, or move them to the workday before or after.
+  - **Moving one date:** any single event, or one date of a series, can be moved on its own.
+- **Time zones.** Each event has its own time zone, which defaults to your computer's. Times are shown converted to your time zone (or one you choose in Settings), so a 12 pm New York call shows as 9 am in Los Angeles.
 - **Event types.** Name your own types (Team meeting, Client meeting, Deadline, and so on) and pick a color for each. Optionally shade days on the year view by type. Days with several types split into bands.
 - **Holidays you control.** Start from US federal, Oregon state, Canada, UK (England and Wales), or Australia holidays, or from an empty list. Turn any holiday on or off, edit it, or add your own. Rules include a fixed date, "3rd Monday of January", "Monday on or before May 24", Easter-based dates, and one-time closures. Choose how weekend holidays are observed. Set the holiday shade and its name in the key.
 - **Printable, clickable PDFs:**
@@ -20,7 +29,7 @@ No sign-up and no server. Everything you add stays in your own browser.
   - **Options:** standard, narrow, or binder-edge margins, black and white, and four text sizes.
 - **Outlook import and export:**
   - **Import:** read `.ics` calendar files or Outlook `.csv` exports. Repeating meetings are filled in, including weekly, nth weekday, last weekday of the month, and yearly patterns, with skipped and moved occurrences. Time zones are converted, and Outlook categories map to event types. You get a preview before importing, duplicates are skipped, and you can undo the last import.
-  - **Export:** `.ics` for new Outlook, Outlook on the web, and Outlook for Windows or Mac, or Outlook's `.csv` layout for Outlook for Windows (classic). Event types become Outlook categories.
+  - **Export:** `.ics` for new Outlook, Outlook on the web, and Outlook for Windows or Mac, or Outlook's `.csv` layout for Outlook for Windows (classic). Event types become Outlook categories. Repeating events export as real repeating meetings, including changed and removed dates.
 - **Light and dark mode**, and it works on phones.
 
 ## Your data

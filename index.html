@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="A free year-at-a-glance planner: add events, shade holidays and meeting types, and export clickable PDFs from Letter to 4×8 ft wall banners. Imports and exports Outlook calendars.">
+<meta name="description" content="A free year-at-a-glance planner: repeating events, holiday warnings, time zones, custom holidays and meeting types, clickable PDFs from Letter to 4×8 ft wall banners, and Outlook import and export.">
 <meta name="color-scheme" content="light dark">
 <title>Year Planner</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='24' rx='4' fill='%232b5c8a'/%3E%3Crect x='3' y='5' width='26' height='7' rx='3' fill='%231f4e79'/%3E%3Cg fill='%23fff'%3E%3Crect x='7' y='15' width='4' height='4'/%3E%3Crect x='14' y='15' width='4' height='4'/%3E%3Crect x='21' y='15' width='4' height='4'/%3E%3Crect x='7' y='22' width='4' height='4'/%3E%3Crect x='14' y='22' width='4' height='4'/%3E%3C/g%3E%3C/svg%3E">
@@ -17,18 +17,18 @@
 /* Layout: one sheet of paper on a cool desk — toolbar, then a 4×3 month grid of note boxes; day view swaps in a schedule + editor. */
 :root{
   --bg:#eef1f5; --paper:#ffffff; --ink:#1b2532; --muted:#647080; --line:#cfd6df; --line-soft:#e4e8ee;
-  --accent:#2b5c8a; --accent-ink:#ffffff; --weekend:#f4f6f9; --danger:#b8392f; --focus:#4b8fd6;
+  --accent:#2b5c8a; --accent-ink:#ffffff; --weekend:#f4f6f9; --danger:#b8392f; --focus:#4b8fd6; --warn:#8a5300; --warn-bg:#fff3d6; --warn-line:#e5a93a;
   --shadow:0 1px 2px rgba(20,35,55,.06),0 6px 24px rgba(20,35,55,.07);
   --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
   --f-body:"Inter",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0d1218; --paper:#151c25; --ink:#e2e8ef; --muted:#8f9bab; --line:#2d3946; --line-soft:#222c37;
-  --accent:#7db0e0; --accent-ink:#0d1218; --weekend:#19212b; --danger:#ef7d72; --focus:#7db0e0;
+  --accent:#7db0e0; --accent-ink:#0d1218; --weekend:#19212b; --danger:#ef7d72; --focus:#7db0e0; --warn:#f3c56c; --warn-bg:#35290f; --warn-line:#8c6a22;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.25); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1218; --paper:#151c25; --ink:#e2e8ef; --muted:#8f9bab; --line:#2d3946; --line-soft:#222c37;
-  --accent:#7db0e0; --accent-ink:#0d1218; --weekend:#19212b; --danger:#ef7d72; --focus:#7db0e0;
+  --accent:#7db0e0; --accent-ink:#0d1218; --weekend:#19212b; --danger:#ef7d72; --focus:#7db0e0; --warn:#f3c56c; --warn-bg:#35290f; --warn-line:#8c6a22;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.25); color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -80,6 +80,30 @@ button{cursor:pointer}
 .hedit{padding:12px;background:var(--weekend);border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:10px}
 .hedit .note{margin:0}
 .hempty{padding:12px;font-size:13px;color:var(--muted)}
+.alert{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600}
+.alert .btn{padding:5px 10px;font-size:12px}
+.cell.conf::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 11px 11px 0;border-color:transparent var(--warn-line) transparent transparent}
+.ev.conf{outline:2px dashed var(--warn-line);outline-offset:-2px}
+.ev .ic{font-weight:700;margin-right:3px}
+.ev small{display:block}
+.holwarn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:8px}
+.holwarn b{font-weight:700}
+.subbox{border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.subbox>.lbl{font-weight:700;color:var(--ink)}
+.daypick{display:flex;gap:4px;flex-wrap:wrap}
+.daypick label{position:relative}
+.daypick input{position:absolute;opacity:0;inset:0}
+.daypick span{display:grid;place-items:center;width:34px;height:30px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
+.daypick input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.daypick input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inline input[type=number]{width:72px}
+.inline input[type=date],.inline select{width:auto}
+.cflist{display:flex;flex-direction:column;gap:8px}
+.cfitem{border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.cfitem small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.cfitem .actions .btn{padding:5px 9px;font-size:12px}
+.delchoices{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
 .drawer hr{border:0;border-top:1px solid var(--line-soft);margin:2px 0;width:100%}
 .drawer h3{font-family:var(--f-display);font-size:16px;margin:0}
 
@@ -225,6 +249,7 @@ input[type=number]{border:1px solid var(--line);border-radius:7px;background:var
   </div>
 
   <div class="legend" id="legend" aria-label="Shading key"></div>
+  <div class="alert" id="yearAlert" hidden role="status"></div>
   <main id="yearView" class="sheet"><div class="year" id="yearGrid"></div></main>
 
   <main id="dayView" hidden>
@@ -237,6 +262,7 @@ input[type=number]{border:1px solid var(--line);border-radius:7px;background:var
     <div class="daygrid" style="margin-top:14px">
       <section class="panel">
         <h3>Schedule</h3>
+        <div class="alert" id="dayAlert" hidden role="status" style="margin-bottom:10px"></div>
         <div class="allday" id="allDay"></div>
         <div class="timeline" id="timeline"><div class="hours" id="hours"></div><div class="evlayer" id="evLayer"></div></div>
         <p class="note" style="margin:8px 0 0">Click an hour to start a new event at that time.</p>
@@ -246,20 +272,50 @@ input[type=number]{border:1px solid var(--line);border-radius:7px;background:var
         <form id="evForm" autocomplete="off">
           <label class="field"><span>Title</span><input type="text" id="fTitle" required maxlength="140" placeholder="e.g. Dentist appointment"></label>
           <label class="check"><input type="checkbox" id="fAllDay"> All day</label>
+          <div class="subbox" id="scopeBox" hidden>
+            <span class="lbl">This is a repeating event</span>
+            <div class="seg" style="align-self:flex-start"><label><input type="radio" name="fScope" value="one" checked><span>Change only this one</span></label><label><input type="radio" name="fScope" value="all"><span>Change all in the series</span></label></div>
+            <span class="note" id="scopeNote"></span>
+          </div>
+          <div class="holwarn" id="holWarn" hidden></div>
           <div class="row" id="timeRow">
             <label class="field"><span>Starts</span><input type="time" id="fStart" value="09:00"></label>
             <label class="field"><span>Ends</span><input type="time" id="fEnd" value="10:00"></label>
+          </div>
+          <div class="field" id="tzRow"><label class="lbl" for="fTz">Time zone</label><select id="fTz"></select><span class="note" id="fTzNote"></span></div>
+          <div class="field" id="repeatRow"><label class="lbl" for="fRepeat">Repeat</label>
+            <select id="fRepeat"><option value="">Does not repeat</option><option value="daily">Daily</option><option value="weekdays">Every weekday (Monday to Friday)</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+          <div class="subbox" id="repeatBox" hidden>
+            <div class="inline" id="intervalRow"><span>Every</span><input type="number" id="fInterval" min="1" max="99" value="1" aria-label="Repeat interval"><span id="fIntervalUnit">weeks</span></div>
+            <div class="field" id="daysRow"><span class="lbl">On these days</span><div class="daypick" id="fDays"></div></div>
+            <label class="field" id="monthlyRow"><span>On</span><select id="fMonthly"></select></label>
+            <div class="field"><span class="lbl">Ends</span>
+              <div class="inline"><select id="fEndType" aria-label="Ends"><option value="never">Never</option><option value="until">On a date</option><option value="count">After a number of times</option></select>
+                <input type="date" id="fUntil" aria-label="End date"><input type="number" id="fCount" min="1" max="999" value="10" aria-label="Number of times"><span id="fCountLbl">times</span></div></div>
+            <label class="field"><span>If a date falls on a holiday</span>
+              <select id="fHolRule"><option value="keep">Keep it there and warn me</option><option value="skip">Skip that date</option><option value="before">Move it to the workday before</option><option value="after">Move it to the workday after</option></select></label>
+            <p class="note" id="fRepeatSummary" style="margin:0"></p>
           </div>
           <div class="field"><label class="lbl" for="fType">Type</label>
             <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="typedot" id="fTypeDot"></span><select id="fType"></select></div>
             <button type="button" class="linkbtn" id="editTypes">Edit types and colors</button></div>
           <label class="field"><span>Notes</span><textarea id="fNotes" maxlength="4000" placeholder="Location, details, reminders…"></textarea></label>
-          <p class="msg" id="formMsg"></p>
+          <div class="subbox" id="moveBox" hidden>
+            <span class="lbl" id="moveLbl">Move this event</span>
+            <div class="inline"><button type="button" class="btn" data-move="-1" id="moveBefore">Workday before</button><button type="button" class="btn" data-move="1" id="moveAfter">Workday after</button></div>
+            <div class="inline"><input type="date" id="fMoveTo" aria-label="Move to date"><button type="button" class="btn" id="moveGo">Move to this date</button><button type="button" class="btn ghost" id="moveReset" hidden>Put back</button></div>
+          </div>
+          <p class="msg" id="formMsg" role="status"></p>
           <div class="actions">
             <button class="btn primary" type="submit" id="saveBtn">Add event</button>
             <button class="btn" type="button" id="newBtn" hidden>New event</button>
             <button class="btn danger sp" type="button" id="delBtn" hidden>Delete</button>
           </div>
+          <div class="delchoices" id="delChoices" hidden><span>Delete:</span>
+            <button type="button" class="btn danger" data-del="one">Only this one</button>
+            <button type="button" class="btn danger" data-del="following">This and following</button>
+            <button type="button" class="btn danger" data-del="all">All in the series</button>
+            <button type="button" class="btn ghost" data-del="cancel">Cancel</button></div>
         </form>
       </section>
     </div>
@@ -287,6 +343,8 @@ input[type=number]{border:1px solid var(--line);border-radius:7px;background:var
     <hr>
     <h3>Calendar</h3>
     <label class="check"><input type="checkbox" id="sWeekend" checked> Shade weekends grey</label>
+    <div class="field"><label class="lbl" for="sDispTz">Show times in</label><select id="sDispTz"></select>
+      <span class="note">Events keep their own time zone; times are shown converted to this one.</span></div>
     <div class="field"><span class="lbl">Week starts on</span>
       <div class="seg"><label><input type="radio" name="ws" value="0" checked><span>Sunday</span></label><label><input type="radio" name="ws" value="1"><span>Monday</span></label></div></div>
     <hr>
@@ -368,6 +426,13 @@ input[type=number]{border:1px solid var(--line);border-radius:7px;background:var
   </aside>
 </div>
 
+<div class="scrim" id="conflicts" hidden>
+  <aside class="drawer wide" role="dialog" aria-labelledby="cfH">
+    <header><h2 id="cfH">Events on holidays</h2><button class="btn ghost icon close" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></header>
+    <p class="note" id="cfIntro" style="margin:0"></p>
+    <div class="cflist" id="cfList"></div>
+  </aside>
+</div>
 <div class="scrim" id="export" hidden>
   <aside class="drawer wide" role="dialog" aria-labelledby="expH">
     <header><h2 id="expH">Export PDF</h2><button class="btn ghost icon close" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></header>
@@ -481,13 +546,14 @@ function normalizePrefs(p) {
   delete out.holSet;
   return out;
 }
-const DEFAULT_PREFS = { hol: makeHol('OR'), holColor: '#3a78b8', holStr: 30, weekend: true, weekStart: 0, types: DEFAULT_TYPES, typeShade: true, typeStr: 30 };
+const DEFAULT_PREFS = { hol: makeHol('OR'), holColor: '#3a78b8', holStr: 30, weekend: true, weekStart: 0, displayTz: '', types: DEFAULT_TYPES, typeShade: true, typeStr: 30 };
 // an event's type; older events saved before types existed are matched by their color
 const typeOf = e => S.prefs.types.find(t => t.id === e.type) || (e.type ? null : S.prefs.types.find(t => t.color === e.color)) || null;
 const evColor = e => typeOf(e)?.color || e.color || '#5a6878';
 const rgba = (hex, a) => { const [r, g, b] = hexRgb(hex); return `rgba(${r},${g},${b},${a})`; };
 // shaded types present on a day, in the order of the types list
 const shadedTypes = list => S.prefs.typeShade ? S.prefs.types.filter(t => t.shade && list.some(e => typeOf(e)?.id === t.id)) : [];
+const LOCAL_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } })();
 // opens on the current year, or on next year from October onward
 const START_YEAR = (() => { const t = new Date(); return t.getMonth() >= 9 ? t.getFullYear() + 1 : t.getFullYear(); })();
 const S = { year: START_YEAR, events: {}, prefs: { ...DEFAULT_PREFS }, day: null, editId: null };
@@ -540,11 +606,128 @@ function holidays(y) {
 }
 
 /* ---------- events helpers ---------- */
-function eventsOn(k) {
-  return Object.values(S.events).filter(e => e.date === k).sort((a, b) =>
-    (a.allDay === b.allDay ? 0 : a.allDay ? -1 : 1) || (toMin(a.start) ?? 0) - (toMin(b.start) ?? 0) || a.title.localeCompare(b.title));
+/* Events are stored once. A repeating event (a series) carries a `repeat` rule and per-date `exceptions`
+   ({deleted} | {date, start, end, allDay, title, notes, type, color, ack}); the dates it lands on are worked out
+   for whatever range is on screen. Times are wall-clock times in the event's own time zone (`tz`) and are
+   converted to the display time zone when shown. */
+const displayTz = () => S.prefs.displayTz || LOCAL_TZ;
+const dayNum = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+const isWeekendKey = k => { const w = parse(k).getDay(); return w === 0 || w === 6; };
+const holidayOn = k => holidays(+k.slice(0, 4)).get(k) || null;
+function workdayFrom(k, dir) { let x = addDays(k, dir); for (let i = 0; i < 40 && (isWeekendKey(x) || holidayOn(x)); i++) x = addDays(x, dir); return x; }
+const zoneFmt = {};
+function wallIn(t, tz) {
+  const f = zoneFmt[tz] ||= new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const p = Object.fromEntries(f.formatToParts(t).map(x => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${pad(+p.hour % 24)}:${p.minute}` };
 }
-function byDate() { const m = {}; for (const e of Object.values(S.events)) (m[e.date] ||= []).push(e); for (const k in m) m[k] = eventsOn(k); return m; }
+function instantOf(dateKey, hhmm, tz) {
+  const [y, m, d] = dateKey.split('-').map(Number), mins = toMin(hhmm) ?? 540, h = Math.floor(mins / 60), mi = mins % 60;
+  return (tz && fromZone(y, m - 1, d, h, mi, tz)) || new Date(y, m - 1, d, h, mi);
+}
+function convertWall(dateKey, hhmm, fromTz, toTz) {
+  try { return wallIn(instantOf(dateKey, hhmm, fromTz), toTz); } catch { return { date: dateKey, time: hhmm }; }
+}
+function matchesRepeat(r, d, st0) {
+  const iv = Math.max(1, r.interval || 1);
+  if (r.freq === 'daily') return (dayNum(d) - dayNum(st0)) % iv === 0;
+  if (r.freq === 'weekly') {
+    const days = r.days?.length ? r.days : [st0.getDay()];
+    return days.includes(d.getDay()) && (((dayNum(d) - d.getDay()) - (dayNum(st0) - st0.getDay())) / 7) % iv === 0;
+  }
+  const len = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(), dom = d.getDate();
+  if (r.freq === 'monthly') {
+    if (((d.getFullYear() - st0.getFullYear()) * 12 + d.getMonth() - st0.getMonth()) % iv) return false;
+    if (r.monthly === 'nth') return d.getDay() === st0.getDay() && Math.ceil(dom / 7) === Math.ceil(st0.getDate() / 7);
+    if (r.monthly === 'last') return d.getDay() === st0.getDay() && dom + 7 > len;
+    return dom === Math.min(st0.getDate(), len);
+  }
+  if (r.freq === 'yearly') return (d.getFullYear() - st0.getFullYear()) % iv === 0 && d.getMonth() === st0.getMonth() && dom === Math.min(st0.getDate(), len);
+  return false;
+}
+// the series' own dates (before exceptions, holiday rules and time zones)
+function seriesDates(e, fromKey, toKey) {
+  const r = e.repeat, out = [], st0 = parse(e.date);
+  const endKey = r.endType === 'until' && r.until && r.until < toKey ? r.until : toKey, end = parse(endKey), from = parse(fromKey);
+  const count = r.endType === 'count' ? Math.max(1, r.count || 1) : Infinity;
+  let n = 0;
+  for (let d = new Date(st0); d <= end; d.setDate(d.getDate() + 1)) {
+    if (!matchesRepeat(r, d, st0)) continue;
+    if (++n > count) break;
+    if (d >= from) out.push(fmt(d));
+    if (out.length > 4000) break;
+  }
+  return out;
+}
+const OCC_FIELDS = ['title', 'notes', 'type', 'color'];
+function expandEvent(e, fromKey, toKey) {
+  const disp = displayTz(), out = [];
+  const keys = e.repeat ? seriesDates(e, addDays(fromKey, -10), addDays(toKey, 10)) : [e.date];
+  for (const occKey of keys) {
+    const ex = e.repeat ? e.exceptions?.[occKey] : null;
+    if (ex?.deleted) continue;
+    let wallDate = ex?.date || occKey, shiftedFrom = ex?.date && ex.date !== occKey ? occKey : null, byRule = false;
+    if (e.repeat && !ex?.date && e.holidayRule && e.holidayRule !== 'keep' && holidayOn(wallDate)) {
+      if (e.holidayRule === 'skip') continue;
+      wallDate = workdayFrom(wallDate, e.holidayRule === 'before' ? -1 : 1); shiftedFrom = occKey; byRule = true;
+    }
+    const allDay = ex?.allDay ?? e.allDay, ws = allDay ? '' : (ex?.start ?? e.start), we = allDay ? '' : (ex?.end ?? e.end);
+    let date = wallDate, start = ws, end = we;
+    const tz = e.tz || disp;
+    if (!allDay && ws && tz !== disp) {
+      const a = convertWall(wallDate, ws, tz, disp); date = a.date; start = a.time;
+      if (we) { const b = convertWall(wallDate, we, tz, disp); end = b.date === date ? b.time : b.date > date ? '23:59' : ''; }
+    }
+    if (date < fromKey || date > toKey) continue;
+    const o = { ...e, date, start, end, allDay, occKey: e.repeat ? occKey : null, recurring: !!e.repeat, shiftedFrom, byRule,
+      wall: { date: wallDate, start: ws, end: we }, tzDiff: !allDay && !!ws && tz !== disp, base: e };
+    if (ex) for (const f of OCC_FIELDS) if (ex[f] !== undefined) o[f] = ex[f];
+    o.holiday = holidayOn(date);
+    o.acked = !!o.holiday && (e.repeat ? ex?.ack : e.holAck) === date;
+    out.push(o);
+  }
+  return out;
+}
+const sortOcc = list => list.sort((a, b) => (a.allDay === b.allDay ? 0 : a.allDay ? -1 : 1) || (toMin(a.start) ?? 0) - (toMin(b.start) ?? 0) || a.title.localeCompare(b.title));
+const expandAll = (fromKey, toKey) => Object.values(S.events).flatMap(e => expandEvent(e, fromKey, toKey));
+function eventsOn(k) { return sortOcc(expandAll(k, k)); }
+function byDate(y = S.year) { const m = {}; for (const o of expandAll(`${y}-01-01`, `${y}-12-31`)) (m[o.date] ||= []).push(o); for (const k in m) sortOcc(m[k]); return m; }
+const conflictOf = o => o.holiday && !o.acked;
+function yearConflicts(y = S.year) { return expandAll(`${y}-01-01`, `${y}-12-31`).filter(conflictOf).sort((a, b) => a.date.localeCompare(b.date) || (a.start || '').localeCompare(b.start || '')); }
+
+/* repeat rule text */
+const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function repeatText(r, startKey, holRule) {
+  if (!r) return '';
+  const d = parse(startKey), iv = Math.max(1, r.interval || 1), every = (one, many) => iv === 1 ? `Every ${one}` : `Every ${iv} ${many}`;
+  let t;
+  if (r.freq === 'daily') t = every('day', 'days');
+  else if (r.freq === 'weekly') {
+    const days = (r.days?.length ? r.days : [d.getDay()]).slice().sort();
+    t = iv === 1 && days.join() === '1,2,3,4,5' ? 'Every weekday' : `${every('week', 'weeks')} on ${days.map(i => WD_SHORT[i]).join(', ')}`;
+  } else if (r.freq === 'monthly') {
+    t = every('month', 'months') + (r.monthly === 'nth' ? ` on the ${ORD[Math.ceil(d.getDate() / 7)]} ${WEEKDAYS[d.getDay()]}` : r.monthly === 'last' ? ` on the last ${WEEKDAYS[d.getDay()]}` : ` on day ${d.getDate()}`);
+  } else t = every('year', 'years') + ` on ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  if (r.endType === 'until' && r.until) t += `, until ${fmtShort(r.until)}`;
+  if (r.endType === 'count') t += `, ${plural(r.count || 1, 'time')}`;
+  if (holRule && holRule !== 'keep') t += holRule === 'skip' ? '. Skips holidays' : `. Holidays move to the workday ${holRule}`;
+  return t + '.';
+}
+const tzName = tz => String(tz || '').replace(/_/g, ' ').replace(/^.*\//, '');
+function tzAbbr(tz, when = new Date()) {
+  try { return new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(when).find(p => p.type === 'timeZoneName').value; } catch { return tz; }
+}
+let TZ_OPTIONS = '';
+function tzOptions() {
+  if (TZ_OPTIONS) return TZ_OPTIONS;
+  let all = []; try { all = Intl.supportedValuesOf('timeZone'); } catch {}
+  const common = [...new Set([LOCAL_TZ, 'America/Los_Angeles', 'America/Denver', 'America/Phoenix', 'America/Chicago', 'America/New_York', 'America/Anchorage', 'Pacific/Honolulu',
+    'America/Halifax', 'UTC', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Shanghai', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland'])];
+  const off = tz => { try { return new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date()).find(p => p.type === 'timeZoneName').value.replace('GMT', 'UTC'); } catch { return ''; } };
+  const opt = tz => `<option value="${esc(tz)}">${esc(tz.replace(/_/g, ' '))}${off(tz) ? ` (${off(tz)})` : ''}${tz === LOCAL_TZ ? ' · this computer' : ''}</option>`;
+  TZ_OPTIONS = `<optgroup label="Common">${common.map(opt).join('')}</optgroup>` + (all.length ? `<optgroup label="All time zones">${all.filter(z => !common.includes(z)).map(opt).join('')}</optgroup>` : '');
+  return TZ_OPTIONS;
+}
 
 /* ---------- theme vars from prefs ---------- */
 function applyPrefs() {
@@ -578,6 +761,8 @@ function renderYear() {
       if (S.prefs.weekend && (wd === 0 || wd === 6)) cls.push('we');
       if (h) cls.push(h.observed ? 'obs' : 'hol');
       if (k === today) cls.push('today');
+      const conf = list.filter(conflictOf).length;
+      if (conf) cls.push('conf');
       const typeBands = shadedTypes(list).map(t => rgba(t.color, S.prefs.typeStr / 100));
       const bands = [...(h ? [h.observed ? 'var(--obs-bg)' : 'var(--hol-bg)'] : []), ...typeBands].slice(0, 4);
       // holiday-only days keep their class shading; days with a shaded event type get side-by-side bands
@@ -585,14 +770,33 @@ function renderYear() {
         ? ` style="background:linear-gradient(90deg,${bands.map((b, j) => `${b} ${(j * 100 / bands.length).toFixed(2)}% ${((j + 1) * 100 / bands.length).toFixed(2)}%`).join(',')}),var(--paper)"` : '';
       const shown = list.slice(0, 3).map(e => `<span class="chip"><b style="background:${evColor(e)}"></b><span>${esc(e.title)}</span></span>`).join('');
       const more = list.length > 3 ? `<span class="more">+${list.length - 3} more</span>` : '';
-      const label = `${WEEKDAYS[wd]}, ${MONTHS[m]} ${d}${h ? ', ' + h.name : ''}${list.length ? `, ${list.length} event${list.length > 1 ? 's' : ''}` : ''}`;
+      const label = `${WEEKDAYS[wd]}, ${MONTHS[m]} ${d}${h ? ', ' + h.name : ''}${list.length ? `, ${list.length} event${list.length > 1 ? 's' : ''}` : ''}${conf ? `, ${conf} on a holiday` : ''}`;
       cells += `<button class="${cls.join(' ')}" data-date="${k}" aria-label="${esc(label)}"${bg}><span class="n">${d}</span>${shown}${more}${h ? `<span class="hname">${esc(h.name)}</span>` : ''}</button>`;
     }
     html += `<section class="month"><h2>${MONTHS[m]}</h2><div class="dow">${dowHTML}</div><div class="cells">${cells}</div></section>`;
   }
   $('#yearGrid').innerHTML = html;
   $('#yTitle').textContent = y;
+  renderYearAlert();
 }
+function renderYearAlert() {
+  const n = S.day ? 0 : yearConflicts().length, el = $('#yearAlert');
+  el.hidden = !n;
+  if (n) el.innerHTML = `<span>⚠ ${n === 1 ? '1 event falls' : `${n} events fall`} on a holiday in ${S.year}.</span><button class="btn" type="button" id="reviewConflicts">Review</button>`;
+}
+function renderConflicts() {
+  const list = yearConflicts(), box = $('#cfList');
+  $('#cfIntro').textContent = list.length ? `These events are on a holiday in ${S.year}. Move each one to the workday before or after, keep it where it is, or open it to make other changes.` : `No events fall on a holiday in ${S.year}.`;
+  box.innerHTML = list.map(o => {
+    const before = workdayFrom(o.date, -1), after = workdayFrom(o.date, 1), dd = parse(o.date);
+    const when = o.allDay ? 'All day' : `${fmtTime(o.start)}${o.end ? '–' + fmtTime(o.end) : ''}`;
+    return `<div class="cfitem" data-id="${esc(o.id)}" data-occ="${esc(o.occKey || '')}" data-date="${o.date}">
+      <div><b>${esc(o.title)}</b><small>${DOW[dd.getDay()]}, ${MONTHS[dd.getMonth()].slice(0, 3)} ${dd.getDate()} · ${esc(o.holiday.name)} · ${when}${o.recurring ? ' · repeating' : ''}</small></div>
+      <div class="actions"><button class="btn" type="button" data-act="${before}">Move to ${esc(fmtDay(before))}</button><button class="btn" type="button" data-act="${after}">Move to ${esc(fmtDay(after))}</button>
+        <button class="btn" type="button" data-act="keep">Keep it</button><button class="btn ghost" type="button" data-act="open">Open</button></div></div>`;
+  }).join('');
+}
+const fmtDay = k => { const d = parse(k); return `${DOW[d.getDay()]}, ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`; };
 
 /* ---------- day view ---------- */
 const HOUR_PX = 52;
@@ -603,6 +807,9 @@ function renderDay() {
   $('#dDate').textContent = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   $('#dHol').hidden = !h; if (h) $('#dHol').textContent = h.name;
   const list = eventsOn(k), all = list.filter(e => e.allDay), timed = list.filter(e => !e.allDay);
+  const conf = list.filter(conflictOf).length;
+  $('#dayAlert').hidden = !conf;
+  if (conf) $('#dayAlert').textContent = `⚠ ${conf === 1 ? '1 event is' : `${conf} events are`} on ${h.name}. Open an event to move it or keep it there.`;
   $('#allDay').innerHTML = all.map(e => evBtn(e, true)).join('');
   // overlap layout
   const items = timed.map(e => { const s = toMin(e.start) ?? 0; let en = toMin(e.end); if (en == null || en <= s) en = s + 60; return { e, s, en: Math.min(en, 1440) }; });
@@ -618,26 +825,123 @@ function renderDay() {
 }
 function evBtn(e, allDay, style = '') {
   const t = allDay ? 'All day' : `${fmtTime(e.start)}${e.end ? '–' + fmtTime(e.end) : ''}`;
-  const tn = typeOf(e)?.name;
-  return `<button type="button" class="ev ${allDay ? 'adev' : ''} ${S.editId === e.id ? 'sel' : ''}" data-id="${e.id}" style="--c:${evColor(e)};${style}"><strong>${esc(e.title)}</strong><small>${t}${tn ? ' · ' + esc(tn) : ''}</small></button>`;
+  const tn = typeOf(e)?.name, sel = S.editId === e.id && (!e.recurring || S.editOcc === e.occKey);
+  const extra = [e.tzDiff ? `${fmtTime(e.wall.start)} ${tzAbbr(e.tz, instantOf(e.wall.date, e.wall.start, e.tz))}` : '', e.shiftedFrom ? `moved from ${fmtDay(e.shiftedFrom)}` : ''].filter(Boolean).join(' · ');
+  const ic = (conflictOf(e) ? '<span class="ic" title="On a holiday">⚠</span>' : '') + (e.recurring ? '<span class="ic" title="Repeating event">↻</span>' : '');
+  return `<button type="button" class="ev ${allDay ? 'adev' : ''} ${sel ? 'sel' : ''} ${conflictOf(e) ? 'conf' : ''}" data-id="${esc(e.id)}" data-occ="${esc(e.occKey || '')}" style="--c:${evColor(e)};${style}"><strong>${ic}${esc(e.title)}</strong><small>${t}${tn ? ' · ' + esc(tn) : ''}${extra ? ' · ' + esc(extra) : ''}</small></button>`;
 }
 function buildHours() {
   $('#hours').innerHTML = Array.from({ length: 24 }, (_, h) => `<div class="hr" data-h="${h}"><label>${h === 0 ? '12am' : h < 12 ? h + 'am' : h === 12 ? '12pm' : (h - 12) + 'pm'}</label></div>`).join('');
 }
 function fillForm(e) {
-  S.editId = e ? e.id : null;
-  $('#formTitle').textContent = e ? 'Edit event' : 'New event';
+  S.editId = e ? e.id : null; S.editOcc = e?.recurring ? e.occKey : null; S.editObj = e || null;
+  const base = e ? S.events[e.id] : null, r = base?.repeat;
+  $('#formTitle').textContent = e ? (e.recurring ? 'Edit repeating event' : 'Edit event') : 'New event';
   $('#saveBtn').textContent = e ? 'Save changes' : 'Add event';
   $('#newBtn').hidden = !e; $('#delBtn').hidden = !e; disarm();
   $('#fTitle').value = e?.title || '';
   $('#fAllDay').checked = !!e?.allDay;
-  $('#fStart').value = e?.start || '09:00'; $('#fEnd').value = e?.end || '10:00';
+  $('#fStart').value = (e ? e.wall.start : '') || '09:00'; $('#fEnd').value = (e ? e.wall.end : '') || '10:00';
   $('#fNotes').value = e?.notes || '';
   renderTypeSelect(e ? (typeOf(e)?.id || '') : (S.lastType && S.prefs.types.some(t => t.id === S.lastType) ? S.lastType : S.prefs.types[0]?.id || ''));
-  $('#timeRow').hidden = $('#fAllDay').checked;
+  if (!$('#fTz').options.length) $('#fTz').innerHTML = tzOptions();
+  $('#fTz').value = base?.tz || LOCAL_TZ;
+  if ($('#fTz').value !== (base?.tz || LOCAL_TZ)) $('#fTz').value = LOCAL_TZ;
+  // repeat controls
+  const start = base ? base.date : S.day;
+  $('#fRepeat').value = !r ? '' : r.freq === 'weekly' && (r.interval || 1) === 1 && (r.days || []).slice().sort().join() === '1,2,3,4,5' ? 'weekdays' : r.freq;
+  $('#fInterval').value = r?.interval || 1;
+  $$('#fDays input').forEach(i => i.checked = (r?.freq === 'weekly' && r.days?.length ? r.days : [parse(start).getDay()]).includes(+i.value));
+  fillMonthly(start); $('#fMonthly').value = r?.monthly || 'day';
+  $('#fEndType').value = r?.endType || 'never'; $('#fUntil').value = r?.until || addDays(start, 90); $('#fCount').value = r?.count || 10;
+  $('#fHolRule').value = base?.holidayRule || 'keep';
+  setRadio('fScope', 'one');
+  $('#scopeBox').hidden = !e?.recurring;
+  $('#scopeNote').textContent = e?.recurring ? repeatText(r, base.date, base.holidayRule) + (e.shiftedFrom ? ` This one was moved from ${fmtDay(e.shiftedFrom)}.` : '') : '';
+  $('#delChoices').hidden = true;
   $('#formMsg').textContent = ''; $('#formMsg').className = 'msg';
+  updateFormUI();
 }
-function disarm() { const b = $('#delBtn'); b.classList.remove('armed'); b.textContent = 'Delete'; }
+function fillMonthly(startKey) {
+  const d = parse(startKey), last = d.getDate() + 7 > new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  $('#fMonthly').innerHTML = `<option value="day">Day ${d.getDate()} of the month</option><option value="nth">The ${ORD[Math.ceil(d.getDate() / 7)]} ${WEEKDAYS[d.getDay()]}</option>` + (last ? `<option value="last">The last ${WEEKDAYS[d.getDay()]}</option>` : '');
+}
+function readRepeat() {
+  const v = $('#fRepeat').value; if (!v) return null;
+  const startKey = S.editId && S.events[S.editId] ? S.events[S.editId].date : S.day;
+  const r = { freq: v === 'weekdays' ? 'weekly' : v, interval: v === 'weekdays' ? 1 : Math.max(1, Math.min(99, parseInt($('#fInterval').value, 10) || 1)), endType: $('#fEndType').value };
+  if (v === 'weekdays') r.days = [1, 2, 3, 4, 5];
+  else if (v === 'weekly') { r.days = $$('#fDays input').filter(i => i.checked).map(i => +i.value); if (!r.days.length) r.days = [parse(startKey).getDay()]; }
+  if (v === 'monthly') r.monthly = $('#fMonthly').value;
+  if (r.endType === 'until') r.until = $('#fUntil').value || addDays(startKey, 90);
+  if (r.endType === 'count') r.count = Math.max(1, Math.min(999, parseInt($('#fCount').value, 10) || 1));
+  return r;
+}
+// show/hide form parts for the current state (all day, repeat, scope, holiday warning, time zone note)
+function updateFormUI() {
+  const e = S.editObj, one = !!e?.recurring && radioVal('fScope') === 'one', allDay = $('#fAllDay').checked;
+  $('#timeRow').hidden = allDay; $('#tzRow').hidden = allDay || one;
+  $('#repeatRow').hidden = one;
+  const v = $('#fRepeat').value;
+  $('#repeatBox').hidden = one || !v;
+  $('#intervalRow').hidden = v === 'weekdays';
+  $('#fIntervalUnit').textContent = { daily: 'days', weekly: 'weeks', monthly: 'months', yearly: 'years' }[v] || '';
+  $('#daysRow').hidden = v !== 'weekly'; $('#monthlyRow').hidden = v !== 'monthly';
+  $('#fUntil').hidden = $('#fEndType').value !== 'until';
+  $('#fCount').hidden = $('#fCountLbl').hidden = $('#fEndType').value !== 'count';
+  const startKey = e ? S.events[e.id].date : S.day;
+  $('#fRepeatSummary').textContent = v ? repeatText(readRepeat(), startKey, $('#fHolRule').value) : '';
+  // time zone note
+  const tz = $('#fTz').value || LOCAL_TZ, disp = displayTz(), st = $('#fStart').value, en = $('#fEnd').value;
+  let note = '';
+  if (!allDay && st && tz !== disp) {
+    const day = e ? e.wall.date : S.day, a = convertWall(day, st, tz, disp), b = en ? convertWall(day, en, tz, disp) : null;
+    note = `That's ${fmtTime(a.time)}${b ? '–' + fmtTime(b.time) : ''}${a.date !== day ? ` on ${fmtDay(a.date)}` : ''} in ${tzName(disp)} time.`;
+  } else if (!allDay) note = tz === LOCAL_TZ ? 'Your computer’s time zone.' : '';
+  $('#fTzNote').textContent = note;
+  // move controls and holiday warning
+  $('#moveBox').hidden = !e;
+  if (e) {
+    $('#moveLbl').textContent = e.recurring ? 'Move only this one' : 'Move this event';
+    const before = workdayFrom(e.date, -1), after = workdayFrom(e.date, 1);
+    $('#moveBefore').textContent = `‹ ${fmtDay(before)}`; $('#moveBefore').dataset.to = before; $('#moveBefore').title = 'Workday before';
+    $('#moveAfter').textContent = `${fmtDay(after)} ›`; $('#moveAfter').dataset.to = after; $('#moveAfter').title = 'Workday after';
+    if (!$('#fMoveTo').value || $('#fMoveTo').dataset.for !== `${e.id}@${e.occKey}`) { $('#fMoveTo').value = e.date; $('#fMoveTo').dataset.for = `${e.id}@${e.occKey}`; }
+    $('#moveReset').hidden = !(e.recurring && S.events[e.id].exceptions?.[e.occKey]?.date);
+    $('#moveReset').textContent = e.recurring ? `Put back on ${fmtDay(e.occKey)}` : '';
+  }
+  const w = $('#holWarn');
+  w.hidden = !(e && conflictOf(e));
+  if (e && conflictOf(e)) w.innerHTML = `<span>⚠ ${e.recurring ? 'This date in the series' : 'This event'} falls on <b>${esc(e.holiday.name)}</b>.</span>
+    <div class="inline"><button type="button" class="btn" data-move-to="${workdayFrom(e.date, -1)}">Move to ${esc(fmtDay(workdayFrom(e.date, -1)))}</button><button type="button" class="btn" data-move-to="${workdayFrom(e.date, 1)}">Move to ${esc(fmtDay(workdayFrom(e.date, 1)))}</button><button type="button" class="btn ghost" id="holKeep">Keep it here</button></div>`;
+}
+/* one-off changes: move or acknowledge a single date (an exception for a series) */
+async function moveOccurrence(o, target) {
+  const base = S.events[o.id]; if (!base || !target) return;
+  const delta = dayNum(parse(target)) - dayNum(parse(o.date));
+  if (o.recurring) {
+    const ex = { ...(base.exceptions?.[o.occKey] || {}) }, nd = addDays(o.wall.date, delta);
+    if (nd === o.occKey) delete ex.date; else ex.date = nd;
+    delete ex.ack;
+    const exceptions = { ...(base.exceptions || {}), [o.occKey]: ex };
+    if (!Object.keys(ex).length) delete exceptions[o.occKey];
+    await persistEvent({ ...base, exceptions });
+  } else {
+    const { holAck, ...rest } = base;
+    await persistEvent({ ...rest, date: addDays(base.date, delta) });
+  }
+}
+async function keepOccurrence(o) {
+  const base = S.events[o.id]; if (!base) return;
+  if (o.recurring) await persistEvent({ ...base, exceptions: { ...(base.exceptions || {}), [o.occKey]: { ...(base.exceptions?.[o.occKey] || {}), ack: o.date } } });
+  else await persistEvent({ ...base, holAck: o.date });
+}
+function findOcc(id, occKey, dateKey) {
+  const e = S.events[id]; if (!e) return null;
+  const list = expandEvent(e, addDays(dateKey, -400), addDays(dateKey, 400));
+  return list.find(o => (o.occKey || '') === (occKey || '') && (!dateKey || o.date === dateKey)) || list.find(o => (o.occKey || '') === (occKey || '')) || null;
+}
+function disarm() { const b = $('#delBtn'); b.classList.remove('armed'); b.textContent = 'Delete'; $('#delChoices').hidden = true; }
 
 /* ---------- routing ---------- */
 function route() {
@@ -647,7 +951,7 @@ function route() {
     const k = `${m[1]}-${m[2]}-${m[3]}`;
     if (S.day !== k) { S.day = k; fillForm(null); }
     S.year = +m[1];
-    $('#yearView').hidden = true; $('#dayView').hidden = false; $('#yearNav').hidden = true;
+    $('#yearView').hidden = true; $('#dayView').hidden = false; $('#yearNav').hidden = true; $('#yearAlert').hidden = true;
     $('#viewSub').textContent = 'Day view';
     renderDay();
     const tl = $('#timeline'); if (!tl.dataset.scrolled) { tl.scrollTop = 7 * HOUR_PX; tl.dataset.scrolled = 1; }
@@ -719,6 +1023,8 @@ function syncSettingsUI() {
   syncHolidayUI(); $('#sHolColor').value = S.prefs.holColor;
   $('#sStr').value = S.prefs.holStr; $('#sStrVal').textContent = S.prefs.holStr + '%';
   $('#sWeekend').checked = S.prefs.weekend;
+  if (!$('#sDispTz').options.length) $('#sDispTz').innerHTML = tzOptions();
+  $('#sDispTz').value = displayTz();
   $$('input[name=ws]').forEach(i => i.checked = +i.value === S.prefs.weekStart);
   $$('#sPresets input').forEach(i => i.checked = i.value === S.prefs.holColor);
   $('#sTypeShade').checked = S.prefs.typeShade; $('#sTStr').value = S.prefs.typeStr; $('#sTStrVal').textContent = S.prefs.typeStr + '%';
@@ -1233,17 +1539,57 @@ document.addEventListener('keydown', e => {
 });
 
 $('#dayView').addEventListener('click', e => {
-  const b = e.target.closest('.ev'); if (b) { fillForm(S.events[b.dataset.id]); renderDay(); $('#fTitle').focus(); return; }
+  const b = e.target.closest('.ev'); if (b) { fillForm(eventsOn(S.day).find(o => o.id === b.dataset.id && (o.occKey || '') === b.dataset.occ) || null); renderDay(); $('#fTitle').focus(); return; }
   const hr = e.target.closest('.hr');
   if (hr) { fillForm(null); const hh = +hr.dataset.h; $('#fStart').value = pad(hh) + ':00'; $('#fEnd').value = pad(Math.min(hh + 1, 23)) + (hh === 23 ? ':59' : ':00'); renderDay(); $('#fTitle').focus(); }
 });
-$('#fAllDay').onchange = () => $('#timeRow').hidden = $('#fAllDay').checked;
+$('#fDays').innerHTML = WD_SHORT.map((d, i) => `<label><input type="checkbox" value="${i}" aria-label="${WEEKDAYS[i]}"><span>${d.slice(0, 2)}</span></label>`).join('');
+$('#evForm').addEventListener('change', e => { if (!e.target.closest('#holWarn, #moveBox')) updateFormUI(); });
+$('#evForm').addEventListener('input', e => { if (/fStart|fEnd|fInterval|fCount/.test(e.target.id)) updateFormUI(); });
+$('#evForm').addEventListener('click', async e => {
+  const o = S.editObj; if (!o) return;
+  const to = e.target.closest('[data-move-to]')?.dataset.moveTo || e.target.closest('[data-move]')?.dataset.to || (e.target.closest('#moveGo') ? $('#fMoveTo').value : null);
+  const msg = $('#formMsg');
+  if (to) {
+    if (to === o.date) { msg.textContent = 'It’s already on that date.'; msg.className = 'msg'; return; }
+    await moveOccurrence(o, to);
+    S.day = to; go('day-' + to);
+    const moved = eventsOn(to).find(x => x.id === o.id && (x.occKey || '') === (o.occKey || ''));
+    fillForm(moved || null); renderDay();
+    $('#formMsg').textContent = `Moved to ${fmtDay(to)}${o.recurring ? '. The rest of the series is unchanged' : ''}.` + (moved && conflictOf(moved) ? ` That's also a holiday (${moved.holiday.name}).` : '');
+    $('#formMsg').className = 'msg';
+    return;
+  }
+  if (e.target.closest('#moveReset')) {
+    const base = S.events[o.id], ex = { ...(base.exceptions?.[o.occKey] || {}) }; delete ex.date; delete ex.ack;
+    const exceptions = { ...base.exceptions, [o.occKey]: ex }; if (!Object.keys(ex).length) delete exceptions[o.occKey];
+    await persistEvent({ ...base, exceptions });
+    const back = findOcc(o.id, o.occKey, null); S.day = back ? back.date : o.occKey; go('day-' + S.day); fillForm(back); renderDay();
+    $('#formMsg').textContent = 'Put back on its series date.'; return;
+  }
+  if (e.target.closest('#holKeep')) {
+    await keepOccurrence(o);
+    fillForm(eventsOn(S.day).find(x => x.id === o.id && (x.occKey || '') === (o.occKey || '')) || null); renderDay();
+    $('#formMsg').textContent = 'Kept on the holiday. The warning is cleared for this date.'; $('#formMsg').className = 'msg';
+  }
+});
 $('#newBtn').onclick = () => { fillForm(null); renderDay(); $('#fTitle').focus(); };
 $('#delBtn').onclick = async () => {
   const b = $('#delBtn');
+  if (S.editObj?.recurring) { $('#delChoices').hidden = !$('#delChoices').hidden; return; }
   if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirm delete'; return; }
   const id = S.editId; fillForm(null); await removeEvent(id); renderDay();
 };
+$('#delChoices').addEventListener('click', async e => {
+  const act = e.target.closest('[data-del]')?.dataset.del, o = S.editObj; if (!act || !o) return;
+  if (act === 'cancel') { $('#delChoices').hidden = true; return; }
+  const base = S.events[o.id];
+  if (act === 'all' || (act === 'following' && o.occKey <= base.date)) await removeEvent(o.id);
+  else if (act === 'one') await persistEvent({ ...base, exceptions: { ...(base.exceptions || {}), [o.occKey]: { deleted: true } } });
+  else await persistEvent({ ...base, repeat: { ...base.repeat, endType: 'until', until: addDays(o.occKey, -1), count: undefined } });
+  fillForm(null); renderDay();
+  $('#formMsg').textContent = act === 'one' ? 'Deleted this date. The rest of the series is unchanged.' : act === 'all' ? 'Deleted the whole series.' : 'Deleted this and all later dates.';
+});
 $('#evForm').addEventListener('submit', async e => {
   e.preventDefault();
   const title = $('#fTitle').value.trim(), allDay = $('#fAllDay').checked, start = $('#fStart').value, end = $('#fEnd').value;
@@ -1251,20 +1597,47 @@ $('#evForm').addEventListener('submit', async e => {
   if (!title) { msg.textContent = 'Give the event a title.'; msg.className = 'msg err'; return; }
   if (!allDay && !start) { msg.textContent = 'Pick a start time, or tick All day.'; msg.className = 'msg err'; return; }
   if (!allDay && end && toMin(end) <= toMin(start)) { msg.textContent = 'The end time must be after the start time.'; msg.className = 'msg err'; return; }
-  const ev = { ...(S.editId ? S.events[S.editId] : {}), id: S.editId || ('e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), date: S.day, title, allDay,
-    start: allDay ? '' : start, end: allDay ? '' : end, notes: $('#fNotes').value.trim(), type: $('#fType').value,
-    color: S.prefs.types.find(t => t.id === $('#fType').value)?.color || (S.editId && S.events[S.editId]?.color) || '#5a6878' };
-  if (ev.type) S.lastType = ev.type;
-  const wasEdit = !!S.editId;
-  S.editId = ev.id;
+  const base = S.editId ? S.events[S.editId] : null, o = S.editObj;
+  const fields = { title, allDay, start: allDay ? '' : start, end: allDay ? '' : end, notes: $('#fNotes').value.trim(), type: $('#fType').value,
+    color: S.prefs.types.find(t => t.id === $('#fType').value)?.color || base?.color || '#5a6878' };
+  if (fields.type) S.lastType = fields.type;
+  let ev, note;
+  if (base && o?.recurring && radioVal('fScope') === 'one') {
+    // only this date: store the differences as an exception
+    const ex = { ...(base.exceptions?.[o.occKey] || {}) };
+    for (const f of ['title', 'allDay', 'start', 'end', 'notes', 'type', 'color']) { if (fields[f] !== base[f]) ex[f] = fields[f]; else delete ex[f]; }
+    ev = { ...base, exceptions: { ...(base.exceptions || {}), [o.occKey]: ex } };
+    note = 'Saved for this date only.';
+  } else {
+    const repeat = readRepeat();
+    ev = { ...(base || {}), id: base ? base.id : 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), date: base ? base.date : S.day, ...fields,
+      tz: allDay ? (base?.tz || LOCAL_TZ) : ($('#fTz').value || LOCAL_TZ), repeat, holidayRule: repeat ? $('#fHolRule').value : undefined };
+    if (!repeat) { delete ev.exceptions; delete ev.holidayRule; }
+    note = base ? (base.repeat ? 'Saved for the whole series.' : 'Changes saved.') : 'Event added.';
+    if (repeat) note += ' ' + repeatText(repeat, ev.date, ev.holidayRule);
+  }
   await persistEvent(ev);
-  fillForm(ev); renderDay();
-  msg.textContent = wasEdit ? 'Changes saved.' : 'Event added.'; msg.className = 'msg';
+  const again = eventsOn(S.day).find(x => x.id === ev.id && (!o?.recurring || x.occKey === o.occKey)) || eventsOn(S.day).find(x => x.id === ev.id) || null;
+  fillForm(again); renderDay();
+  if (!again) note += ' It no longer falls on this day.';
+  if (ev.repeat) { const n = expandEvent(ev, `${S.year}-01-01`, `${S.year}-12-31`).filter(conflictOf).length; if (n) note += ` ⚠ ${plural(n, 'date')} in ${S.year} ${n === 1 ? 'falls' : 'fall'} on a holiday.`; }
+  else if (again && conflictOf(again)) note += ` ⚠ This is on ${again.holiday.name}.`;
+  msg.textContent = note; msg.className = 'msg';
 });
 
 // drawers
 const open = id => { $('#' + id).hidden = false; $('#' + id + ' .close').focus(); };
 $('#openSettings').onclick = () => { syncSettingsUI(); open('settings'); };
+$('#yearAlert').addEventListener('click', e => { if (e.target.closest('#reviewConflicts')) { renderConflicts(); open('conflicts'); } });
+$('#cfList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'), item = e.target.closest('.cfitem'); if (!b || !item) return;
+  const o = findOcc(item.dataset.id, item.dataset.occ, item.dataset.date); if (!o) return;
+  const act = b.dataset.act;
+  if (act === 'open') { $('#conflicts').hidden = true; S.day = o.date; go('day-' + o.date); fillForm(eventsOn(o.date).find(x => x.id === o.id && (x.occKey || '') === (o.occKey || '')) || null); renderDay(); return; }
+  b.disabled = true;
+  if (act === 'keep') await keepOccurrence(o); else await moveOccurrence(o, act);
+  renderConflicts(); render();
+});
 $('#openExport').onclick = () => { $('#xMsg').textContent = ''; $('#xTypeShade').checked = S.prefs.typeShade; updateExportUI(); open('export'); };
 $$('.scrim').forEach(s => { s.addEventListener('click', e => { if (e.target === s) s.hidden = true; }); s.querySelector('.close').onclick = () => s.hidden = true; });
 
@@ -1272,6 +1645,7 @@ $('#sHolColor').oninput = e => setPref({ holColor: e.target.value });
 $('#sPresets').onchange = e => setPref({ holColor: e.target.value });
 $('#sStr').oninput = e => setPref({ holStr: +e.target.value });
 $('#sWeekend').onchange = e => setPref({ weekend: e.target.checked });
+$('#sDispTz').onchange = e => setPref({ displayTz: e.target.value === LOCAL_TZ ? '' : e.target.value });
 $('#sTypeShade').onchange = e => setPref({ typeShade: e.target.checked });
 $('#sHolShow').onchange = e => setHol({ show: e.target.checked });
 $('#sHolLabel').oninput = e => setHol({ label: e.target.value.trim() });
@@ -1540,7 +1914,8 @@ function expandRRule(v, fromKey, toKey, skip) {
   const weekStart = d => utcDay(d) - ((d.getDay() - wkst + 7) % 7);
   const ordOk = (b, d) => { const dom = d.getDate(), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     return b.wd === d.getDay() && (b.n === 0 || b.n === Math.ceil(dom / 7) || b.n === -Math.ceil((last - dom + 1) / 7)); };
-  const mdOk = d => { const dom = d.getDate(), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); return bymd.some(x => x > 0 ? x === dom : last + x + 1 === dom); };
+  const mdOk = d => { const dom = d.getDate(), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return bymd.some(x => x > 0 ? x === dom || (bymd.length === 1 && x > last && dom === last) : last + x + 1 === dom); };
   const setposOk = d => { // e.g. "last weekday of the month"
     const y = d.getFullYear(), m = d.getMonth(), last = new Date(y, m + 1, 0).getDate(), hits = [];
     for (let i = 1; i <= last; i++) { const x = new Date(y, m, i); if (byday.some(b => ordOk(b, x))) hits.push(i); }
@@ -1762,7 +2137,7 @@ async function runImport() {
   const batch = 'b' + Date.now().toString(36);
   const evs = plan.fresh.map((it, i) => ({ id: 'o' + Date.now().toString(36) + i.toString(36) + Math.random().toString(36).slice(2, 6),
     date: it.date, title: it.title.slice(0, 140), allDay: it.allDay, start: it.start, end: it.end, notes: it.notes.slice(0, 4000), type: it.type, color: it.color,
-    uid: it.uid, source: 'outlook', batch }));
+    uid: it.uid, source: 'outlook', batch, tz: LOCAL_TZ }));
   for (const e of evs) S.events[e.id] = e;
   lsWrite(); render();
   try { localStorage.setItem(LAST_IMPORT_KEY, JSON.stringify({ batch, count: evs.length, name: olFile.name })); } catch {}
@@ -1805,9 +2180,14 @@ function icsFold(line) {
 const icsDate = k => k.replace(/-/g, '');
 const icsUTC = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 function splitLocation(notes) { const m = String(notes || '').match(/^Location: (.*)(?:\n|$)/); return m ? { loc: m[1], desc: notes.slice(m[0].length) } : { loc: '', desc: notes || '' }; }
+function exportRange() {
+  if (radioVal('olScope') !== 'all') return [`${S.year}-01-01`, `${S.year}-12-31`];
+  const first = Object.values(S.events).map(e => e.date).sort()[0];
+  return [first && first < `${S.year}-01-01` ? first : `${S.year}-01-01`, `${S.year + 1}-12-31`];
+}
 function exportList() {
-  const scope = radioVal('olScope'), skip = $('#olSkipOutlook').checked;
-  return Object.values(S.events).filter(e => (scope === 'all' || e.date.startsWith(S.year + '-')) && !(skip && e.source === 'outlook'))
+  const [from, to] = exportRange(), skip = $('#olSkipOutlook').checked;
+  return Object.values(S.events).filter(e => !(skip && e.source === 'outlook') && (e.repeat ? expandEvent(e, from, to).length : e.date >= from && e.date <= to))
     .sort((a, b) => a.date.localeCompare(b.date) || (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || (a.start || '').localeCompare(b.start || ''));
 }
 function exportHolidays() {
@@ -1816,23 +2196,51 @@ function exportHolidays() {
   return years.flatMap(y => [...holidays(y)].map(([k, h]) => ({ date: k, name: h.name })));
 }
 function timedRange(e) {
-  const [y, m, d] = e.date.split('-').map(Number), sm = toMin(e.start) ?? 540, em = toMin(e.end);
-  const st = new Date(y, m - 1, d, Math.floor(sm / 60), sm % 60);
-  const en = em != null && em > sm ? new Date(y, m - 1, d, Math.floor(em / 60), em % 60) : new Date(st.getTime() + 3600000);
+  const st = instantOf(e.date, e.start || '09:00', e.tz), sm = toMin(e.start) ?? 540, em = toMin(e.end);
+  const en = em != null && em > sm ? instantOf(e.date, e.end, e.tz) : new Date(st.getTime() + 3600000);
   return [st, en];
+}
+function icsRRule(e) {
+  const r = e.repeat, d = parse(e.date), p = [`FREQ=${r.freq.toUpperCase()}`];
+  if ((r.interval || 1) > 1) p.push(`INTERVAL=${r.interval}`);
+  if (r.freq === 'weekly') p.push('BYDAY=' + (r.days?.length ? r.days : [d.getDay()]).slice().sort().map(i => WD_CODES[i]).join(','));
+  if (r.freq === 'monthly') p.push(r.monthly === 'nth' ? `BYDAY=${Math.ceil(d.getDate() / 7)}${WD_CODES[d.getDay()]}` : r.monthly === 'last' ? `BYDAY=-1${WD_CODES[d.getDay()]}` : `BYMONTHDAY=${d.getDate()}`);
+  if (r.freq === 'yearly') p.push(`BYMONTH=${d.getMonth() + 1}`, `BYMONTHDAY=${d.getDate()}`);
+  if (r.endType === 'until' && r.until) p.push(`UNTIL=${e.allDay ? icsDate(r.until) : icsUTC(instantOf(r.until, '23:59', e.tz))}`);
+  if (r.endType === 'count') p.push(`COUNT=${r.count || 1}`);
+  return 'RRULE:' + p.join(';');
+}
+// one VEVENT body (dates, text, category) for a date/time of an event
+function icsEventLines(e, date, start, end, allDay, title, notes, type) {
+  const { loc, desc } = splitLocation(notes), t = typeOf({ ...e, type }), L = [];
+  if (allDay) L.push(`DTSTART;VALUE=DATE:${icsDate(date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(date, 1))}`, 'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE', 'TRANSP:TRANSPARENT');
+  else { const [st, en] = timedRange({ date, start, end, tz: e.tz }); L.push(`DTSTART:${icsUTC(st)}`, `DTEND:${icsUTC(en)}`, 'TRANSP:OPAQUE', 'X-MICROSOFT-CDO-BUSYSTATUS:BUSY'); }
+  L.push(`SUMMARY:${icsEscape(title)}`);
+  if (desc.trim()) L.push(`DESCRIPTION:${icsEscape(desc.trim())}`);
+  if (loc) L.push(`LOCATION:${icsEscape(loc)}`);
+  if (t) L.push(`CATEGORIES:${icsEscape(t.name)}`);
+  return L;
 }
 function buildICS(list, hols) {
   const stamp = icsUTC(new Date()), L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Year Planner//Calendar Export//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${icsEscape('Year Planner ' + (radioVal('olScope') === 'all' ? '' : S.year)).trim()}`];
+  const [from, to] = exportRange();
   for (const e of list) {
-    const { loc, desc } = splitLocation(e.notes), t = typeOf(e);
-    L.push('BEGIN:VEVENT', `UID:${e.id}@year-planner`, `DTSTAMP:${stamp}`);
-    if (e.allDay) L.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(e.date, 1))}`, 'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE', 'TRANSP:TRANSPARENT');
-    else { const [st, en] = timedRange(e); L.push(`DTSTART:${icsUTC(st)}`, `DTEND:${icsUTC(en)}`, 'TRANSP:OPAQUE', 'X-MICROSOFT-CDO-BUSYSTATUS:BUSY'); }
-    L.push(`SUMMARY:${icsEscape(e.title)}`);
-    if (desc.trim()) L.push(`DESCRIPTION:${icsEscape(desc.trim())}`);
-    if (loc) L.push(`LOCATION:${icsEscape(loc)}`);
-    if (t) L.push(`CATEGORIES:${icsEscape(t.name)}`);
+    const uid = `UID:${e.id}@year-planner`;
+    if (!e.repeat) { L.push('BEGIN:VEVENT', uid, `DTSTAMP:${stamp}`, ...icsEventLines(e, e.date, e.start, e.end, e.allDay, e.title, e.notes, e.type), 'END:VEVENT'); continue; }
+    // a series: one repeating meeting, plus removed dates (EXDATE) and changed dates (RECURRENCE-ID)
+    const recId = k => e.allDay ? `;VALUE=DATE:${icsDate(k)}` : `:${icsUTC(instantOf(k, e.start, e.tz))}`;
+    const dates = seriesDates(e, e.date, to), shown = new Map(expandEvent(e, e.date, addDays(to, 10)).map(o => [o.occKey, o]));
+    const exdates = [], overrides = [];
+    for (const k of dates) {
+      const ex = e.exceptions?.[k], o = shown.get(k);
+      if (!o) { if (k >= from || ex?.deleted) exdates.push(k); continue; }
+      const changed = ex && OCC_FIELDS.concat(['date', 'start', 'end', 'allDay']).some(f => ex[f] !== undefined);
+      if ((changed || o.byRule) && k >= from) overrides.push(o);
+    }
+    L.push('BEGIN:VEVENT', uid, `DTSTAMP:${stamp}`, ...icsEventLines(e, e.date, e.start, e.end, e.allDay, e.title, e.notes, e.type), icsRRule(e));
+    for (const k of exdates) L.push(`EXDATE${recId(k)}`);
     L.push('END:VEVENT');
+    for (const o of overrides) L.push('BEGIN:VEVENT', uid, `DTSTAMP:${stamp}`, `RECURRENCE-ID${recId(o.occKey)}`, ...icsEventLines(e, o.wall.date, o.wall.start, o.wall.end, o.allDay, o.title, o.notes, o.type), 'END:VEVENT');
   }
   for (const h of hols) L.push('BEGIN:VEVENT', `UID:holiday-${icsDate(h.date)}-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}@year-planner`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${icsDate(h.date)}`,
     `DTEND;VALUE=DATE:${icsDate(addDays(h.date, 1))}`, `SUMMARY:${icsEscape(h.name)}`, 'CATEGORIES:Holiday', 'TRANSP:TRANSPARENT', 'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE', 'X-MICROSOFT-CDO-BUSYSTATUS:FREE', 'END:VEVENT');
@@ -1844,10 +2252,13 @@ function buildOutlookCSV(list, hols) {
   const d8 = dt => `${dt.getMonth() + 1}/${dt.getDate()}/${dt.getFullYear()}`;
   const t12 = dt => { let h = dt.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${pad(dt.getMinutes())}:00 ${ap}`; };
   const rows = [['Subject', 'Start Date', 'Start Time', 'End Date', 'End Time', 'All day event', 'Reminder on/off', 'Categories', 'Description', 'Location', 'Show time as']];
-  for (const e of list) {
+  const [from, to] = exportRange();
+  // a spreadsheet has no repeating rows, so each date of a series becomes its own row
+  const occs = list.flatMap(e => e.repeat ? expandEvent(e, from, to) : [{ ...e, wall: { date: e.date, start: e.start, end: e.end } }]).sort((a, b) => a.wall.date.localeCompare(b.wall.date));
+  for (const e of occs) {
     const { loc, desc } = splitLocation(e.notes), cat = typeOf(e)?.name || '';
-    if (e.allDay) rows.push([e.title, d8(parse(e.date)), '', d8(parse(addDays(e.date, 1))), '', 'True', 'False', cat, desc.trim(), loc, '0']);
-    else { const [st, en] = timedRange(e); rows.push([e.title, d8(st), t12(st), d8(en), t12(en), 'False', 'False', cat, desc.trim(), loc, '2']); }
+    if (e.allDay) rows.push([e.title, d8(parse(e.wall.date)), '', d8(parse(addDays(e.wall.date, 1))), '', 'True', 'False', cat, desc.trim(), loc, '0']);
+    else { const [st, en] = timedRange({ date: e.wall.date, start: e.wall.start, end: e.wall.end, tz: e.tz }); rows.push([e.title, d8(st), t12(st), d8(en), t12(en), 'False', 'False', cat, desc.trim(), loc, '2']); }
   }
   for (const h of hols) rows.push([h.name, d8(parse(h.date)), '', d8(parse(addDays(h.date, 1))), '', 'True', 'False', 'Holiday', '', '', '0']);
   return '\uFEFF' + rows.map(r => r.map(q).join(',')).join('\r\n') + '\r\n';
@@ -1857,7 +2268,8 @@ function updateOutlookExport() {
   $('#olScopeYear').textContent = `${S.year} only`;
   $('#olSkipOutlook').closest('label').hidden = !fromOutlook;
   const n = list.length + hols.length;
-  $('#olExpSummary').innerHTML = n ? `<b>${list.length} event${list.length === 1 ? '' : 's'}</b>${hols.length ? ` and ${hols.length} holidays` : ''} will be in the file.` : 'There are no events to export yet. Add events, or include holidays.';
+  const series = list.filter(e => e.repeat).length;
+  $('#olExpSummary').innerHTML = n ? `<b>${list.length} event${list.length === 1 ? '' : 's'}</b>${series ? ` (${series} repeating)` : ''}${hols.length ? ` and ${hols.length} holidays` : ''} will be in the file.` : 'There are no events to export yet. Add events, or include holidays.';
   $('#olExpGo').disabled = !n;
 }
 // A .zip that holds one file, stored without compression (so Windows and macOS open it natively).
@@ -1919,7 +2331,7 @@ $('#olExport').addEventListener('change', updateOutlookExport);
 $('#olExpGo').onclick = runOutlookExport;
 
 window.addEventListener('hashchange', route);
-window.__planner = { S, buildPDF, render, planPages, readExport, writeExport, updateExportUI, holidays };
+window.__planner = { S, buildPDF, render, planPages, readExport, writeExport, updateExportUI, holidays, expandAll, eventsOn, yearConflicts, buildICS: (l, h) => buildICS(l, h), parseICS };
 initStore().then(() => { syncSettingsUI(); applyPrefs(); });
 syncSettingsUI(); applyPrefs(); route();
 })();
