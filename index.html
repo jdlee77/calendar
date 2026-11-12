@@ -1,0 +1,1929 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="A free year-at-a-glance planner: add events, shade holidays and meeting types, and export clickable PDFs from Letter to 4×8 ft wall banners. Imports and exports Outlook calendars.">
+<meta name="color-scheme" content="light dark">
+<title>Year Planner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='24' rx='4' fill='%232b5c8a'/%3E%3Crect x='3' y='5' width='26' height='7' rx='3' fill='%231f4e79'/%3E%3Cg fill='%23fff'%3E%3Crect x='7' y='15' width='4' height='4'/%3E%3Crect x='14' y='15' width='4' height='4'/%3E%3Crect x='21' y='15' width='4' height='4'/%3E%3Crect x='7' y='22' width='4' height='4'/%3E%3Crect x='14' y='22' width='4' height='4'/%3E%3C/g%3E%3C/svg%3E">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* Layout: one sheet of paper on a cool desk — toolbar, then a 4×3 month grid of note boxes; day view swaps in a schedule + editor. */
+:root{
+  --bg:#eef1f5; --paper:#ffffff; --ink:#1b2532; --muted:#647080; --line:#cfd6df; --line-soft:#e4e8ee;
+  --accent:#2b5c8a; --accent-ink:#ffffff; --weekend:#f4f6f9; --danger:#b8392f; --focus:#4b8fd6;
+  --shadow:0 1px 2px rgba(20,35,55,.06),0 6px 24px rgba(20,35,55,.07);
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1218; --paper:#151c25; --ink:#e2e8ef; --muted:#8f9bab; --line:#2d3946; --line-soft:#222c37;
+  --accent:#7db0e0; --accent-ink:#0d1218; --weekend:#19212b; --danger:#ef7d72; --focus:#7db0e0;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1218; --paper:#151c25; --ink:#e2e8ef; --muted:#8f9bab; --line:#2d3946; --line-soft:#222c37;
+  --accent:#7db0e0; --accent-ink:#0d1218; --weekend:#19212b; --danger:#ef7d72; --focus:#7db0e0;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.25); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 32px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1800px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+/* toolbar */
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-family:var(--f-display);font-weight:800;font-size:34px;letter-spacing:-.5px;margin:0;line-height:1}
+.brand .sub{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted)}
+.yearnav{display:flex;align-items:center;gap:2px}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:7px 12px;display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--paper);border-color:var(--line)}
+.btn.icon{padding:7px 9px}
+.btn.danger{color:var(--danger)}
+.btn.danger.armed{background:var(--danger);border-color:var(--danger);color:var(--paper)}
+.btn svg{width:16px;height:16px;flex:none}
+.status{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+.status.ok i{background:#2f9e6a}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:12px;color:var(--muted)}
+.legend:empty{display:none}
+.legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.legend i{width:16px;height:11px;border:1px solid var(--line);display:inline-block}
+.types{display:flex;flex-direction:column;gap:6px}
+.trow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.trow input[type=color]{width:38px;height:32px}
+.trow .sh{font-size:12px;display:flex;align-items:center;gap:4px;color:var(--muted)}
+.trow .btn.armed{color:var(--danger);border-color:var(--danger)}
+.typedot{width:14px;height:14px;border-radius:4px;display:inline-block;flex:none}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font-weight:600;font-size:12px;align-self:flex-start;text-decoration:underline;text-underline-offset:2px}
+.hols{display:flex;flex-direction:column;border:1px solid var(--line-soft);border-radius:8px;overflow:hidden}
+.hrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 8px;align-items:center;padding:7px 8px;border-top:1px solid var(--line-soft)}
+.hols>:first-child{border-top:0}
+.hrow.off .hmain{opacity:.5}
+.hmain{display:flex;flex-direction:column;min-width:0;gap:1px}
+.hmain b{font-size:13px;overflow-wrap:anywhere}
+.hmain small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.hrow .btn{padding:5px 8px;font-size:12px}
+.hrow .btn.armed{color:var(--danger);border-color:var(--danger)}
+.hedit{padding:12px;background:var(--weekend);border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:10px}
+.hedit .note{margin:0}
+.hempty{padding:12px;font-size:13px;color:var(--muted)}
+.drawer hr{border:0;border-top:1px solid var(--line-soft);margin:2px 0;width:100%}
+.drawer h3{font-family:var(--f-display);font-size:16px;margin:0}
+
+/* year grid */
+.sheet{background:var(--paper);border-radius:10px;box-shadow:var(--shadow);padding:16px}
+.year{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 16px}
+@media (max-width:1500px){.year{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){.year{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.year{grid-template-columns:minmax(0,1fr)}.brand h1{font-size:28px}}
+.month{display:flex;flex-direction:column;min-width:0}
+.month h2{font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin:0 0 4px}
+.dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent)}
+.dow span{font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;text-align:center;padding:3px 0}
+.cells{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid var(--line);border-top:1px solid var(--line)}
+.cell{min-height:74px;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--paper);
+  padding:3px 3px 3px 4px;text-align:left;display:flex;flex-direction:column;gap:2px;position:relative;min-width:0;overflow:hidden}
+.cell.pad{background:transparent;border-color:var(--line-soft);cursor:default}
+.cell.we{background:var(--weekend)}
+.cell.hol{background:var(--hol-bg)}
+.cell.obs{background:var(--obs-bg)}
+button.cell:hover{box-shadow:inset 0 0 0 2px var(--accent);z-index:1}
+.cell .n{font-weight:700;font-size:11.5px;line-height:1;font-variant-numeric:tabular-nums}
+.cell.we .n{color:var(--muted)}
+.cell.today .n{background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:2px 3px;margin:-2px 0 0 -2px;align-self:flex-start}
+.chip{display:flex;align-items:center;gap:3px;font-size:9.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip b{width:6px;height:6px;border-radius:2px;flex:none}
+.chip span{overflow:hidden;text-overflow:ellipsis}
+.more{font-size:9px;color:var(--muted);font-weight:600}
+.hname{margin-top:auto;overflow-wrap:anywhere;font-size:8.5px;line-height:1.15;font-weight:600;color:var(--hol-ink)}
+
+/* day view */
+.dayhead{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.dayhead h2{font-family:var(--f-display);font-weight:800;font-size:30px;margin:0;line-height:1.1;text-wrap:balance}
+.dayhead .wk{color:var(--muted);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:600}
+.dtitle{display:flex;flex-direction:column;gap:3px;margin-right:auto;min-width:0}
+.hbadge{align-self:flex-start;background:var(--hol-bg);color:var(--hol-ink);font-weight:700;font-size:12px;padding:3px 8px;border-radius:4px;border:1px solid var(--line)}
+.daygrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.daygrid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--paper);border-radius:10px;box-shadow:var(--shadow);padding:14px;min-width:0}
+.panel h3{font-family:var(--f-display);font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.allday{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.allday:empty{display:none}
+.timeline{position:relative;height:620px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+.hours{position:relative}
+.hr{height:52px;border-top:1px solid var(--line-soft);display:flex;cursor:copy}
+.hr:first-child{border-top:0}
+.hr:hover{background:var(--weekend)}
+.hr label{width:54px;flex:none;font-size:11px;color:var(--muted);text-align:right;padding:3px 8px 0 0;font-variant-numeric:tabular-nums;pointer-events:none}
+.evlayer{position:absolute;left:58px;right:6px;top:0;bottom:0;pointer-events:none}
+.ev{position:absolute;pointer-events:auto;border-radius:6px;padding:4px 7px;font-size:12px;line-height:1.25;overflow:hidden;text-align:left;border:0;
+  border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 16%,var(--paper));color:var(--ink)}
+.ev:hover{background:color-mix(in srgb,var(--c) 26%,var(--paper))}
+.ev strong{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev small{color:var(--muted);font-variant-numeric:tabular-nums}
+.ev.sel{box-shadow:0 0 0 2px var(--c)}
+.adev{position:static;width:100%}
+.empty{color:var(--muted);font-size:13px;padding:10px 2px}
+
+/* form */
+form{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field>span,.lbl{font-size:12px;font-weight:600;color:var(--muted)}
+input[type=text],input[type=time],select,textarea{border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:8px 10px;width:100%;min-width:0}
+textarea{min-height:90px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.field{flex:1 1 110px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatches label{position:relative}
+.swatches input{position:absolute;opacity:0;inset:0}
+.swatches i{display:block;width:24px;height:24px;border-radius:50%;background:var(--c);border:2px solid var(--paper);box-shadow:0 0 0 1px var(--line)}
+.swatches input:checked+i{box-shadow:0 0 0 2px var(--ink)}
+.swatches input:focus-visible+i{outline:2px solid var(--focus);outline-offset:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions .sp{margin-left:auto}
+.evlist{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.evlist .ev{position:static}
+
+/* overlays */
+.scrim{position:fixed;inset:0;background:rgba(10,18,28,.38);display:flex;justify-content:flex-end;z-index:20}
+.drawer{background:var(--paper);width:min(400px,100%);height:100%;overflow-y:auto;box-shadow:var(--shadow);
+  padding:calc(18px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 18px;display:flex;flex-direction:column;gap:16px}
+.drawer header{display:flex;align-items:center;justify-content:space-between}
+.drawer h2{font-family:var(--f-display);font-size:20px;margin:0}
+.preview{display:grid;grid-template-columns:repeat(3,1fr);border-left:1px solid var(--line);border-top:1px solid var(--line)}
+.preview div{height:46px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;padding:3px 4px;display:flex;flex-direction:column}
+.preview small{margin-top:auto;font-size:8.5px;color:var(--hol-ink)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=color]{width:44px;height:34px;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0}
+.seg span{display:block;padding:7px 12px;font-size:13px;font-weight:600}
+.seg input:checked+span{background:var(--accent);color:var(--accent-ink)}
+.seg input:focus-visible+span{outline:2px solid var(--focus);outline-offset:-2px}
+.note{font-size:12px;color:var(--muted);line-height:1.45}
+.msg{font-size:13px;min-height:1.2em}
+.drawer.wide{width:min(460px,100%)}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.preset{position:relative;display:block}
+.preset input{position:absolute;opacity:0;inset:0}
+.preset>span{display:flex;flex-direction:column;gap:3px;height:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;cursor:pointer}
+.preset b{font-size:13px}
+.preset small{font-size:11.5px;color:var(--muted);line-height:1.35}
+.preset input:checked+span{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--paper))}
+.preset input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+fieldset.group{border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px 12px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+fieldset.group legend{font-family:var(--f-display);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:0 4px}
+input[type=number]{border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:8px 10px;width:100%;min-width:0}
+.drop{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line);border-radius:10px;padding:22px 14px;text-align:center;cursor:pointer;background:var(--weekend)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop b{color:var(--accent);font-size:14px}
+.drop span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.drop.over,.drop:hover{border-color:var(--accent)}
+.drop:focus-within{outline:2px solid var(--focus);outline-offset:2px}
+.how{border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px;font-size:13px}
+.how summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.how dl{margin:8px 0 2px;display:flex;flex-direction:column;gap:3px}
+.how dt{font-weight:700;margin-top:6px}
+.how dd{margin:0;color:var(--muted);line-height:1.45}
+.olsec{display:flex;flex-direction:column;gap:12px}
+.presets.one{grid-template-columns:1fr}
+.summary{font-size:13px;line-height:1.5;background:var(--weekend);border-radius:8px;padding:10px 12px}
+.summary b{font-variant-numeric:tabular-nums}
+.summary .warn{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.msg.err{color:var(--danger)}
+@media (prefers-reduced-motion:no-preference){.btn,.cell,.ev{transition:background-color .12s,border-color .12s,box-shadow .12s}}
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <div class="brand"><h1 id="yTitle">2027</h1><span class="sub" id="viewSub">Year at a Glance</span></div>
+    <span class="status" id="status"><i></i><span>Loading…</span></span>
+    <div class="yearnav" id="yearNav">
+      <button class="btn ghost icon" id="prevY" aria-label="Previous year"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 3 5 8l5 5"/></svg></button>
+      <select id="yearPick" aria-label="Jump to year" style="width:auto;padding:6px 8px;font-weight:600"></select>
+      <button class="btn ghost" id="todayBtn">Today</button>
+      <button class="btn ghost icon" id="nextY" aria-label="Next year"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 3 5 5-5 5"/></svg></button>
+    </div>
+    <button class="btn" id="openSettings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/><circle cx="10.5" cy="4" r="1.6" fill="var(--paper)"/><circle cx="5.5" cy="8" r="1.6" fill="var(--paper)"/><circle cx="9" cy="12" r="1.6" fill="var(--paper)"/></svg>Settings</button>
+    <button class="btn" id="openOutlook"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h9.5L10 3M13 10.5H3.5L6 13"/></svg>Import &amp; export</button>
+    <button class="btn primary" id="openExport"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2v8m-3.5-3L8 10.5 11.5 7M3 13.5h10"/></svg>Export PDF</button>
+  </div>
+
+  <div class="legend" id="legend" aria-label="Shading key"></div>
+  <main id="yearView" class="sheet"><div class="year" id="yearGrid"></div></main>
+
+  <main id="dayView" hidden>
+    <div class="dayhead">
+      <button class="btn" id="backYear"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 3 5 8l5 5"/></svg>Year</button>
+      <div class="dtitle"><span class="wk" id="dWeekday"></span><h2 id="dDate"></h2><span class="hbadge" id="dHol" hidden></span></div>
+      <button class="btn icon" id="prevD" aria-label="Previous day"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 3 5 8l5 5"/></svg></button>
+      <button class="btn icon" id="nextD" aria-label="Next day"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 3 5 5-5 5"/></svg></button>
+    </div>
+    <div class="daygrid" style="margin-top:14px">
+      <section class="panel">
+        <h3>Schedule</h3>
+        <div class="allday" id="allDay"></div>
+        <div class="timeline" id="timeline"><div class="hours" id="hours"></div><div class="evlayer" id="evLayer"></div></div>
+        <p class="note" style="margin:8px 0 0">Click an hour to start a new event at that time.</p>
+      </section>
+      <section class="panel">
+        <h3 id="formTitle">New event</h3>
+        <form id="evForm" autocomplete="off">
+          <label class="field"><span>Title</span><input type="text" id="fTitle" required maxlength="140" placeholder="e.g. Dentist appointment"></label>
+          <label class="check"><input type="checkbox" id="fAllDay"> All day</label>
+          <div class="row" id="timeRow">
+            <label class="field"><span>Starts</span><input type="time" id="fStart" value="09:00"></label>
+            <label class="field"><span>Ends</span><input type="time" id="fEnd" value="10:00"></label>
+          </div>
+          <div class="field"><label class="lbl" for="fType">Type</label>
+            <div class="row" style="align-items:center;flex-wrap:nowrap"><span class="typedot" id="fTypeDot"></span><select id="fType"></select></div>
+            <button type="button" class="linkbtn" id="editTypes">Edit types and colors</button></div>
+          <label class="field"><span>Notes</span><textarea id="fNotes" maxlength="4000" placeholder="Location, details, reminders…"></textarea></label>
+          <p class="msg" id="formMsg"></p>
+          <div class="actions">
+            <button class="btn primary" type="submit" id="saveBtn">Add event</button>
+            <button class="btn" type="button" id="newBtn" hidden>New event</button>
+            <button class="btn danger sp" type="button" id="delBtn" hidden>Delete</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="scrim" id="settings" hidden>
+  <aside class="drawer wide" role="dialog" aria-labelledby="setH">
+    <header><h2 id="setH">Settings</h2><button class="btn ghost icon close" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></header>
+    <h3>Holidays</h3>
+    <label class="check"><input type="checkbox" id="sHolShow" checked> Show holidays</label>
+    <div class="field"><label class="lbl" for="sHolPreset">Start from a holiday list</label>
+      <div class="row" style="flex-wrap:nowrap;align-items:center"><select id="sHolPreset"></select><button class="btn" type="button" id="sHolApply" style="flex:none">Use this list</button></div>
+      <span class="note" id="sHolApplyNote">Replaces the holidays below. You can edit any of them afterwards.</span></div>
+    <label class="field"><span>Name in the shading key</span><input type="text" id="sHolLabel" maxlength="40" placeholder="Holiday"></label>
+    <label class="field"><span>When a holiday falls on a weekend</span>
+      <select id="sHolObs"><option value="us">Take the Friday before or Monday after off (US)</option><option value="next">Take the next weekday off (UK, Canada, Australia)</option><option value="none">Don't move it</option></select></label>
+    <div class="field"><span class="lbl">Holidays in <span id="sHolYear">2027</span></span><div class="hols" id="sHols"></div></div>
+    <button class="btn" type="button" id="sHolAdd" style="align-self:flex-start">Add holiday</button>
+    <div class="field"><span class="lbl">Holiday shade</span>
+      <div class="row" style="align-items:center"><input type="color" id="sHolColor" value="#3a78b8"><div class="swatches" id="sPresets"></div></div></div>
+    <label class="field"><span>Shade strength: <b id="sStrVal">30%</b></span><input type="range" id="sStr" min="8" max="70" step="1" value="30"></label>
+    <div class="preview" aria-hidden="true"><div>3</div><div class="pv-h">4<small>Independence Day</small></div><div class="pv-o">5<small>Observed</small></div></div>
+    <p class="note">Holidays get the full shade. Weekday "observed" holidays get a lighter version of the same shade.</p>
+    <hr>
+    <h3>Calendar</h3>
+    <label class="check"><input type="checkbox" id="sWeekend" checked> Shade weekends grey</label>
+    <div class="field"><span class="lbl">Week starts on</span>
+      <div class="seg"><label><input type="radio" name="ws" value="0" checked><span>Sunday</span></label><label><input type="radio" name="ws" value="1"><span>Monday</span></label></div></div>
+    <hr>
+    <h3 id="typesH">Event types</h3>
+    <label class="check"><input type="checkbox" id="sTypeShade"> Shade days on the year view by event type</label>
+    <label class="field"><span>Event shade strength: <b id="sTStrVal">30%</b></span><input type="range" id="sTStr" min="8" max="70" step="1" value="30"></label>
+    <div class="types" id="sTypes"></div>
+    <button class="btn" type="button" id="addType" style="align-self:flex-start">Add type</button>
+    <p class="note">Rename a type or change its color here. Untick Shade for types you don't want shaded on the year view; their events still show in the day box. When a day has more than one shaded type, or a holiday as well, the box splits into side-by-side bands.</p>
+  </aside>
+</div>
+
+<div class="scrim" id="outlook" hidden>
+  <aside class="drawer wide" role="dialog" aria-labelledby="olH">
+    <header><h2 id="olH">Outlook import and export</h2><button class="btn ghost icon close" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></header>
+    <div class="seg" role="tablist" style="align-self:flex-start">
+      <label><input type="radio" name="olTab" value="import" checked><span>Import from Outlook</span></label>
+      <label><input type="radio" name="olTab" value="export"><span>Export to Outlook</span></label>
+    </div>
+
+    <section id="olImport" class="olsec">
+      <details class="how">
+        <summary>How to get a calendar file out of Outlook</summary>
+        <dl>
+          <dt>Outlook for Windows (classic)</dt>
+          <dd>Open your calendar, then choose File › Save Calendar. Select More Options, set Date Range to Whole calendar and Detail to Full details, then save. This makes an .ics file.</dd>
+          <dt>New Outlook for Windows and Outlook on the web</dt>
+          <dd>Go to Settings › Calendar › Shared calendars. Under Publish a calendar, pick your calendar and "Can view all details", then Publish. Open the ICS link it gives you in a browser to download the .ics file. Some workplaces turn publishing off.</dd>
+          <dt>Outlook for Mac</dt>
+          <dd>Use Outlook on the web (steps above), or drag events from the calendar to your desktop to make .ics files.</dd>
+          <dt>Spreadsheet (.csv) from Outlook for Windows (classic)</dt>
+          <dd>File › Open &amp; Export › Import/Export › Export to a file › Comma Separated Values, then choose your Calendar folder and a date range.</dd>
+        </dl>
+      </details>
+      <label class="drop" id="olDrop">
+        <input type="file" id="olFile" accept=".ics,.ical,.ifb,.csv,text/calendar,text/csv">
+        <b>Choose an .ics or .csv file</b><span id="olDropHint">or drop it here</span>
+      </label>
+      <div id="olPreview" class="olsec" hidden>
+        <div class="summary" id="olSummary"></div>
+        <div class="field"><span class="lbl">Which events</span>
+          <label class="check"><input type="radio" name="olRange" value="year" checked> <span id="olRangeYear">Only 2027</span></label>
+          <label class="check"><input type="radio" name="olRange" value="all"> <span id="olRangeAll">Everything in the file</span></label></div>
+        <label class="check"><input type="checkbox" id="olMatch" checked> Match Outlook categories to event types</label>
+        <label class="check"><input type="checkbox" id="olNewTypes" checked> Add event types for categories that don't match</label>
+        <label class="field"><span>Type for events without a category</span><select id="olDefType"></select></label>
+        <button class="btn primary" id="olGo" style="align-self:flex-start">Import</button>
+      </div>
+      <p class="msg" id="olMsg" role="status"></p>
+      <div id="olUndoWrap" hidden><button class="btn" id="olUndo">Undo last import</button></div>
+    </section>
+
+    <section id="olExport" class="olsec" hidden>
+      <div class="field"><span class="lbl">Events</span>
+        <label class="check"><input type="radio" name="olScope" value="year" checked> <span id="olScopeYear">2027 only</span></label>
+        <label class="check"><input type="radio" name="olScope" value="all"> All events</label></div>
+      <div class="field"><span class="lbl">File type</span>
+        <div class="presets one">
+          <label class="preset"><input type="radio" name="olFmt" value="ics" checked><span><b>Calendar file (.ics)</b><small>Works with new Outlook, Outlook on the web, and Outlook for Windows and Mac. Event types become Outlook categories.</small></span></label>
+          <label class="preset"><input type="radio" name="olFmt" value="csv"><span><b>Spreadsheet (.csv)</b><small>For the Import/Export wizard in Outlook for Windows (classic). Also opens in Excel.</small></span></label>
+        </div></div>
+      <label class="check"><input type="checkbox" id="olSkipOutlook" checked> Leave out events that came from Outlook (avoids duplicates)</label>
+      <label class="check"><input type="checkbox" id="olHol"> Include holidays as all-day events</label>
+      <div class="summary" id="olExpSummary"></div>
+      <button class="btn primary" id="olExpGo" style="align-self:flex-start">Download file</button>
+      <p class="msg" id="olExpMsg" role="status"></p>
+      <details class="how" open>
+        <summary>How to add the file to Outlook</summary>
+        <dl>
+          <dt>New Outlook and Outlook on the web</dt>
+          <dd>Open Calendar, choose Add calendar › Upload from file, pick the .ics file, choose which calendar to add it to, then Import.</dd>
+          <dt>Outlook for Windows (classic)</dt>
+          <dd>File › Open &amp; Export › Import/Export › Import an iCalendar (.ics) or vCalendar file. Pick the file, then choose Import to add the events to your calendar. For a .csv, choose Import from another program or file › Comma Separated Values and select your Calendar folder.</dd>
+          <dt>Outlook for Mac</dt>
+          <dd>Double-click the .ics file, or drag it onto the calendar.</dd>
+        </dl>
+      </details>
+    </section>
+  </aside>
+</div>
+
+<div class="scrim" id="export" hidden>
+  <aside class="drawer wide" role="dialog" aria-labelledby="expH">
+    <header><h2 id="expH">Export PDF</h2><button class="btn ghost icon close" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 4 8 8M12 4l-8 8"/></svg></button></header>
+    <div class="field"><span class="lbl">What to print</span>
+      <div class="presets" id="xPresets">
+        <label class="preset"><input type="radio" name="xp" value="wall" checked><span><b>Wall calendar</b><small>One page with the whole year. Best for jumbo prints.</small></span></label>
+        <label class="preset"><input type="radio" name="xp" value="planner"><span><b>Full planner</b><small>Year, 12 month pages and a schedule and notes page for every day.</small></span></label>
+        <label class="preset"><input type="radio" name="xp" value="events"><span><b>Year + my event days</b><small>Year page plus a page for each day that has events.</small></span></label>
+        <label class="preset"><input type="radio" name="xp" value="custom"><span><b>Custom</b><small>Choose the pages yourself below.</small></span></label>
+      </div></div>
+    <fieldset class="group"><legend>Pages</legend>
+      <label class="check"><input type="checkbox" id="xYear" checked> Year at a glance</label>
+      <label class="check"><input type="checkbox" id="xMonths"> Month pages, with a notes area</label>
+      <label class="field"><span>Day pages</span>
+        <select id="xDays"><option value="none">None</option><option value="events">Only days with events</option><option value="all">Every day</option></select></label>
+      <label class="field"><span>Day page layout</span>
+        <select id="xDayLayout"><option value="hourly">Hourly schedule, top priorities and notes</option><option value="agenda">Event list and lined notes</option></select></label>
+      <div class="row"><label class="field"><span>From</span><select id="xFrom"></select></label><label class="field"><span>Through</span><select id="xTo"></select></label></div>
+      <p class="note" style="margin:0">Month and day pages cover these months. The year page always shows all 12.</p>
+    </fieldset>
+    <fieldset class="group"><legend>Paper</legend>
+      <label class="field"><span>Paper size</span><select id="xSize"></select></label>
+      <div class="row" id="xCustom" hidden>
+        <label class="field"><span>Width</span><input type="number" id="xCW" min="1" step="0.1" value="48"></label>
+        <label class="field"><span>Height</span><input type="number" id="xCH" min="1" step="0.1" value="36"></label>
+        <label class="field"><span>Units</span><select id="xCU"><option value="in">inches</option><option value="cm">cm</option><option value="mm">mm</option></select></label>
+      </div>
+      <div class="field"><span class="lbl">Orientation</span>
+        <div class="seg"><label><input type="radio" name="xo" value="landscape" checked><span>Landscape</span></label><label><input type="radio" name="xo" value="portrait"><span>Portrait</span></label></div></div>
+      <div class="field"><span class="lbl">Margins</span>
+        <div class="seg"><label><input type="radio" name="xm" value="standard" checked><span>Standard</span></label><label><input type="radio" name="xm" value="narrow"><span>Narrow</span></label><label><input type="radio" name="xm" value="binder"><span>Binder edge</span></label></div>
+        <span class="note">Binder edge adds room on the left of month and day pages for hole punching or binding.</span></div>
+    </fieldset>
+    <fieldset class="group"><legend>Options</legend>
+      <label class="check"><input type="checkbox" id="xEvTitles" checked> Show event titles on the year page</label>
+      <label class="check"><input type="checkbox" id="xTypeShade"> Shade days by event type</label>
+      <label class="check"><input type="checkbox" id="xGray"> Black and white (saves color ink)</label>
+      <label class="check"><input type="checkbox" id="xBookmarks" checked> Add a bookmark list of months and days</label>
+      <div class="field"><span class="lbl">Calendar text size</span>
+        <div class="seg"><label><input type="radio" name="xt" value="smaller"><span>Smaller</span></label><label><input type="radio" name="xt" value="standard" checked><span>Standard</span></label><label><input type="radio" name="xt" value="larger"><span>Larger</span></label><label><input type="radio" name="xt" value="largest"><span>Largest</span></label></div>
+        <span class="note">Text grows with the paper: the bigger the print, the bigger the dates and event titles. Larger sizes fit fewer events per box.</span></div>
+    </fieldset>
+    <div class="summary" id="xSummary"></div>
+    <p class="msg" id="xMsg"></p>
+    <button class="btn primary" id="xGo" style="align-self:flex-start">Download PDF</button>
+  </aside>
+</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const pad = n => String(n).padStart(2, '0');
+const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const fmt = d => key(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return fmt(d); };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const HOL_PRESETS = ['#3a78b8','#2a9d8f','#6a8fd0','#8e6bbf','#d08a3a','#c45b72'];
+const toMin = t => { if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const fmtTime = t => { const m = toMin(t); if (m == null) return ''; let h = Math.floor(m / 60), mm = m % 60; const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return mm ? `${h}:${pad(mm)}${ap}` : `${h}${ap}`; };
+const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const mixWhite = (hex, a) => hexRgb(hex).map(c => Math.round(255 + (c - 255) * a));
+const darken = (hex, f) => hexRgb(hex).map(c => Math.round(c * f));
+
+/* ---------- state ---------- */
+const DEFAULT_TYPES = [
+  { id: 'team', name: 'Team meeting', color: '#7a4fb0', shade: true },
+  { id: 'client', name: 'Client meeting', color: '#14857a', shade: true },
+  { id: 'one', name: 'One-on-one', color: '#4c8a2b', shade: true },
+  { id: 'training', name: 'Training or workshop', color: '#b7791f', shade: true },
+  { id: 'deadline', name: 'Deadline', color: '#c2413b', shade: true },
+  { id: 'appt', name: 'Appointment', color: '#d0679d', shade: true },
+  { id: 'personal', name: 'Personal', color: '#5a6878', shade: false }];
+/* holiday lists: each holiday is a date rule the planner works out for any year */
+const HR = (name, rule, extra = {}) => ({ name, offset: 0, on: true, obs: true, ...rule, ...extra });
+const hFixed = (m, d) => ({ type: 'fixed', month: m, day: d }), hNth = (n, wd, m) => ({ type: 'nth', n, wd, month: m });
+const hBefore = (m, d, wd) => ({ type: 'before', month: m, day: d, wd }), hEaster = off => ({ type: 'easter', offset: off });
+const US_CORE = [HR("New Year's Day", hFixed(1, 1)), HR('Martin Luther King Jr. Day', hNth(3, 1, 1)), HR("Presidents' Day", hNth(3, 1, 2)), HR('Memorial Day', hNth(-1, 1, 5))];
+const HOLIDAY_PRESETS = {
+  OR: { title: 'Oregon state holidays', label: 'Oregon state holiday', observe: 'us', list: [...US_CORE, HR('Juneteenth', hFixed(6, 19), { since: 2022 }),
+    HR('Independence Day', hFixed(7, 4)), HR('Labor Day', hNth(1, 1, 9)), HR('Veterans Day', hFixed(11, 11)), HR('Thanksgiving', hNth(4, 4, 11)),
+    HR('Day after Thanksgiving', hNth(4, 4, 11), { offset: 1, obs: false, on: false }), HR('Christmas Eve', hFixed(12, 24), { obs: false, on: false }), HR('Christmas Day', hFixed(12, 25))] },
+  US: { title: 'US federal holidays', label: 'US federal holiday', observe: 'us', list: [...US_CORE, HR('Juneteenth', hFixed(6, 19), { since: 2021 }),
+    HR('Independence Day', hFixed(7, 4)), HR('Labor Day', hNth(1, 1, 9)), HR("Columbus / Indigenous Peoples' Day", hNth(2, 1, 10)), HR('Veterans Day', hFixed(11, 11)),
+    HR('Thanksgiving', hNth(4, 4, 11)), HR('Day after Thanksgiving', hNth(4, 4, 11), { offset: 1, obs: false, on: false }),
+    HR('Christmas Eve', hFixed(12, 24), { obs: false, on: false }), HR('Christmas Day', hFixed(12, 25))] },
+  CA: { title: 'Canada statutory holidays (federal)', label: 'Statutory holiday', observe: 'next', list: [HR("New Year's Day", hFixed(1, 1)), HR('Family Day', hNth(3, 1, 2), { on: false }),
+    HR('Good Friday', hEaster(-2), { obs: false }), HR('Easter Monday', hEaster(1), { obs: false, on: false }), HR('Victoria Day', hBefore(5, 24, 1), { obs: false }), HR('Canada Day', hFixed(7, 1)),
+    HR('Civic Holiday', hNth(1, 1, 8), { obs: false, on: false }), HR('Labour Day', hNth(1, 1, 9), { obs: false }), HR('National Day for Truth and Reconciliation', hFixed(9, 30), { since: 2021 }),
+    HR('Thanksgiving', hNth(2, 1, 10), { obs: false }), HR('Remembrance Day', hFixed(11, 11)), HR('Christmas Day', hFixed(12, 25)), HR('Boxing Day', hFixed(12, 26))] },
+  UK: { title: 'UK bank holidays (England and Wales)', label: 'Bank holiday', observe: 'next', list: [HR("New Year's Day", hFixed(1, 1)), HR('Good Friday', hEaster(-2), { obs: false }),
+    HR('Easter Monday', hEaster(1), { obs: false }), HR('Early May bank holiday', hNth(1, 1, 5), { obs: false }), HR('Spring bank holiday', hNth(-1, 1, 5), { obs: false }),
+    HR('Summer bank holiday', hNth(-1, 1, 8), { obs: false }), HR('Christmas Day', hFixed(12, 25)), HR('Boxing Day', hFixed(12, 26))] },
+  AU: { title: 'Australia national public holidays', label: 'Public holiday', observe: 'next', list: [HR("New Year's Day", hFixed(1, 1)), HR('Australia Day', hFixed(1, 26)),
+    HR('Good Friday', hEaster(-2), { obs: false }), HR('Easter Monday', hEaster(1), { obs: false }), HR('Anzac Day', hFixed(4, 25), { obs: false }),
+    HR("King's Birthday", hNth(2, 1, 6), { obs: false }), HR('Christmas Day', hFixed(12, 25)), HR('Boxing Day', hFixed(12, 26))] },
+  blank: { title: 'Start with an empty list', label: 'Holiday', observe: 'us', list: [] },
+};
+function makeHol(key) {
+  const pr = HOLIDAY_PRESETS[key] || HOLIDAY_PRESETS.OR;
+  return { show: true, preset: key, label: pr.label, observe: pr.observe, list: pr.list.map((r, i) => ({ ...r, id: `${key}${i}` })) };
+}
+// settings saved before holidays were editable only stored which list was picked
+function normalizePrefs(p) {
+  const out = { ...DEFAULT_PREFS, ...p };
+  if (!p.hol) out.hol = p.holSet === 'none' ? { ...makeHol('OR'), show: false } : makeHol(p.holSet === 'US' ? 'US' : 'OR');
+  delete out.holSet;
+  return out;
+}
+const DEFAULT_PREFS = { hol: makeHol('OR'), holColor: '#3a78b8', holStr: 30, weekend: true, weekStart: 0, types: DEFAULT_TYPES, typeShade: true, typeStr: 30 };
+// an event's type; older events saved before types existed are matched by their color
+const typeOf = e => S.prefs.types.find(t => t.id === e.type) || (e.type ? null : S.prefs.types.find(t => t.color === e.color)) || null;
+const evColor = e => typeOf(e)?.color || e.color || '#5a6878';
+const rgba = (hex, a) => { const [r, g, b] = hexRgb(hex); return `rgba(${r},${g},${b},${a})`; };
+// shaded types present on a day, in the order of the types list
+const shadedTypes = list => S.prefs.typeShade ? S.prefs.types.filter(t => t.shade && list.some(e => typeOf(e)?.id === t.id)) : [];
+// opens on the current year, or on next year from October onward
+const START_YEAR = (() => { const t = new Date(); return t.getMonth() >= 9 ? t.getFullYear() + 1 : t.getFullYear(); })();
+const S = { year: START_YEAR, events: {}, prefs: { ...DEFAULT_PREFS }, day: null, editId: null };
+const LS_KEY = 'yearplanner.v1';
+function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; } }
+function lsWrite() { try { localStorage.setItem(LS_KEY, JSON.stringify({ events: S.events, prefs: S.prefs })); } catch {} }
+
+/* ---------- holidays ---------- */
+function nthWd(y, m, wd, n) {
+  if (n > 0) { const off = (wd - new Date(y, m, 1).getDay() + 7) % 7; return new Date(y, m, 1 + off + 7 * (n - 1)); }
+  const last = new Date(y, m + 1, 0); return new Date(y, m, last.getDate() - ((last.getDay() - wd + 7) % 7));
+}
+function easter(y) { // Anonymous Gregorian algorithm
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+}
+function ruleDate(r, y) {
+  let d = null;
+  if (r.type === 'fixed') { d = new Date(y, r.month - 1, r.day); if (d.getMonth() !== r.month - 1) return null; }
+  else if (r.type === 'nth') { d = nthWd(y, r.month - 1, r.wd, r.n); if (d.getMonth() !== r.month - 1) return null; }
+  else if (r.type === 'before') { const t = new Date(y, r.month - 1, r.day); d = new Date(y, r.month - 1, r.day - ((t.getDay() - r.wd + 7) % 7)); }
+  else if (r.type === 'easter') d = easter(y);
+  else if (r.type === 'date') { if (!r.date || +r.date.slice(0, 4) !== y) return null; return parse(r.date); }
+  if (d && r.offset) d.setDate(d.getDate() + r.offset);
+  return d;
+}
+const holCache = {};
+function holidays(y) {
+  if (holCache[y]) return holCache[y];
+  const H = S.prefs.hol, map = new Map();
+  if (H?.show) {
+    const actual = yy => H.list.filter(r => r.on && (!r.since || yy >= r.since)).map(r => ({ r, d: ruleDate(r, yy) })).filter(x => x.d).sort((p, q) => p.d - q.d);
+    const add = (k, name, observed) => { const cur = map.get(k); if (!cur) map.set(k, { name, observed }); else if (!cur.name.split(' / ').includes(name)) { cur.name += ' / ' + name; cur.observed = cur.observed && observed; } };
+    const prev = actual(y - 1), now = actual(y), next = actual(y + 1);
+    for (const { r, d } of now) if (d.getFullYear() === y) add(fmt(d), r.name, false);
+    if (H.observe !== 'none') {
+      const taken = new Set([...prev, ...now, ...next].map(x => fmt(x.d)));
+      for (const { r, d } of [...prev.filter(x => x.d.getMonth() === 11), ...now, ...next.filter(x => x.d.getMonth() === 0)]) {
+        const w = d.getDay(); if (!r.obs || (w !== 0 && w !== 6)) continue;
+        const o = new Date(d);
+        if (H.observe === 'us') o.setDate(o.getDate() + (w === 6 ? -1 : 1));
+        else do o.setDate(o.getDate() + 1); while (o.getDay() === 0 || o.getDay() === 6 || taken.has(fmt(o)));
+        taken.add(fmt(o));
+        if (o.getFullYear() === y) add(fmt(o), r.name + ' (observed)', true);
+      }
+    }
+  }
+  return holCache[y] = map;
+}
+
+/* ---------- events helpers ---------- */
+function eventsOn(k) {
+  return Object.values(S.events).filter(e => e.date === k).sort((a, b) =>
+    (a.allDay === b.allDay ? 0 : a.allDay ? -1 : 1) || (toMin(a.start) ?? 0) - (toMin(b.start) ?? 0) || a.title.localeCompare(b.title));
+}
+function byDate() { const m = {}; for (const e of Object.values(S.events)) (m[e.date] ||= []).push(e); for (const k in m) m[k] = eventsOn(k); return m; }
+
+/* ---------- theme vars from prefs ---------- */
+function applyPrefs() {
+  const [r, g, b] = hexRgb(S.prefs.holColor), a = S.prefs.holStr / 100;
+  const root = document.documentElement.style;
+  root.setProperty('--hol-bg', `rgba(${r},${g},${b},${a})`);
+  root.setProperty('--obs-bg', `rgba(${r},${g},${b},${(a * 0.5).toFixed(3)})`);
+  root.setProperty('--hol-ink', `color-mix(in srgb, ${S.prefs.holColor} 62%, var(--ink))`);
+  renderLegend();
+}
+function renderLegend() {
+  const items = [];
+  if (S.prefs.hol.show && S.prefs.hol.list.some(r => r.on)) items.push(`<span><i style="background:var(--hol-bg)"></i>${esc(S.prefs.hol.label || 'Holiday')}</span>`);
+  if (S.prefs.typeShade) for (const t of S.prefs.types) if (t.shade) items.push(`<span><i style="background:${rgba(t.color, S.prefs.typeStr / 100)}"></i>${esc(t.name)}</span>`);
+  $('#legend').innerHTML = items.join('');
+}
+
+/* ---------- year view ---------- */
+function renderYear() {
+  const y = S.year, hol = holidays(y), ev = byDate(), ws = S.prefs.weekStart, today = fmt(new Date());
+  const dowHTML = Array.from({ length: 7 }, (_, i) => `<span>${DOW[(i + ws) % 7]}</span>`).join('');
+  let html = '';
+  for (let m = 0; m < 12; m++) {
+    const days = new Date(y, m + 1, 0).getDate(), lead = (new Date(y, m, 1).getDay() - ws + 7) % 7, weeks = Math.ceil((lead + days) / 7);
+    let cells = '';
+    for (let i = 0; i < weeks * 7; i++) {
+      const d = i - lead + 1;
+      if (d < 1 || d > days) { cells += '<div class="cell pad"></div>'; continue; }
+      const k = key(y, m, d), wd = new Date(y, m, d).getDay(), h = hol.get(k), list = ev[k] || [];
+      const cls = ['cell'];
+      if (S.prefs.weekend && (wd === 0 || wd === 6)) cls.push('we');
+      if (h) cls.push(h.observed ? 'obs' : 'hol');
+      if (k === today) cls.push('today');
+      const typeBands = shadedTypes(list).map(t => rgba(t.color, S.prefs.typeStr / 100));
+      const bands = [...(h ? [h.observed ? 'var(--obs-bg)' : 'var(--hol-bg)'] : []), ...typeBands].slice(0, 4);
+      // holiday-only days keep their class shading; days with a shaded event type get side-by-side bands
+      const bg = typeBands.length
+        ? ` style="background:linear-gradient(90deg,${bands.map((b, j) => `${b} ${(j * 100 / bands.length).toFixed(2)}% ${((j + 1) * 100 / bands.length).toFixed(2)}%`).join(',')}),var(--paper)"` : '';
+      const shown = list.slice(0, 3).map(e => `<span class="chip"><b style="background:${evColor(e)}"></b><span>${esc(e.title)}</span></span>`).join('');
+      const more = list.length > 3 ? `<span class="more">+${list.length - 3} more</span>` : '';
+      const label = `${WEEKDAYS[wd]}, ${MONTHS[m]} ${d}${h ? ', ' + h.name : ''}${list.length ? `, ${list.length} event${list.length > 1 ? 's' : ''}` : ''}`;
+      cells += `<button class="${cls.join(' ')}" data-date="${k}" aria-label="${esc(label)}"${bg}><span class="n">${d}</span>${shown}${more}${h ? `<span class="hname">${esc(h.name)}</span>` : ''}</button>`;
+    }
+    html += `<section class="month"><h2>${MONTHS[m]}</h2><div class="dow">${dowHTML}</div><div class="cells">${cells}</div></section>`;
+  }
+  $('#yearGrid').innerHTML = html;
+  $('#yTitle').textContent = y;
+}
+
+/* ---------- day view ---------- */
+const HOUR_PX = 52;
+function renderDay() {
+  const k = S.day, d = parse(k), h = holidays(d.getFullYear()).get(k);
+  $('#yTitle').textContent = d.getFullYear();
+  $('#dWeekday').textContent = WEEKDAYS[d.getDay()];
+  $('#dDate').textContent = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  $('#dHol').hidden = !h; if (h) $('#dHol').textContent = h.name;
+  const list = eventsOn(k), all = list.filter(e => e.allDay), timed = list.filter(e => !e.allDay);
+  $('#allDay').innerHTML = all.map(e => evBtn(e, true)).join('');
+  // overlap layout
+  const items = timed.map(e => { const s = toMin(e.start) ?? 0; let en = toMin(e.end); if (en == null || en <= s) en = s + 60; return { e, s, en: Math.min(en, 1440) }; });
+  let cluster = [], clusterEnd = -1; const placed = [];
+  const flush = () => { const cols = []; for (const it of cluster) { let c = cols.findIndex(end => end <= it.s); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = it.en; it.col = c; } cluster.forEach(it => it.ncol = cols.length); placed.push(...cluster); cluster = []; };
+  for (const it of items) { if (it.s >= clusterEnd && cluster.length) flush(); cluster.push(it); clusterEnd = Math.max(clusterEnd, it.en); }
+  if (cluster.length) flush();
+  $('#evLayer').innerHTML = placed.map(it => {
+    const w = 100 / it.ncol, top = it.s / 60 * HOUR_PX, ht = Math.max((it.en - it.s) / 60 * HOUR_PX - 2, 22);
+    return evBtn(it.e, false, `top:${top}px;height:${ht}px;left:calc(${w * it.col}% + 1px);width:calc(${w}% - 3px)`);
+  }).join('');
+  if (!list.length) $('#allDay').innerHTML = '<p class="empty">No events yet. Add one with the form, or click an hour below.</p>';
+}
+function evBtn(e, allDay, style = '') {
+  const t = allDay ? 'All day' : `${fmtTime(e.start)}${e.end ? '–' + fmtTime(e.end) : ''}`;
+  const tn = typeOf(e)?.name;
+  return `<button type="button" class="ev ${allDay ? 'adev' : ''} ${S.editId === e.id ? 'sel' : ''}" data-id="${e.id}" style="--c:${evColor(e)};${style}"><strong>${esc(e.title)}</strong><small>${t}${tn ? ' · ' + esc(tn) : ''}</small></button>`;
+}
+function buildHours() {
+  $('#hours').innerHTML = Array.from({ length: 24 }, (_, h) => `<div class="hr" data-h="${h}"><label>${h === 0 ? '12am' : h < 12 ? h + 'am' : h === 12 ? '12pm' : (h - 12) + 'pm'}</label></div>`).join('');
+}
+function fillForm(e) {
+  S.editId = e ? e.id : null;
+  $('#formTitle').textContent = e ? 'Edit event' : 'New event';
+  $('#saveBtn').textContent = e ? 'Save changes' : 'Add event';
+  $('#newBtn').hidden = !e; $('#delBtn').hidden = !e; disarm();
+  $('#fTitle').value = e?.title || '';
+  $('#fAllDay').checked = !!e?.allDay;
+  $('#fStart').value = e?.start || '09:00'; $('#fEnd').value = e?.end || '10:00';
+  $('#fNotes').value = e?.notes || '';
+  renderTypeSelect(e ? (typeOf(e)?.id || '') : (S.lastType && S.prefs.types.some(t => t.id === S.lastType) ? S.lastType : S.prefs.types[0]?.id || ''));
+  $('#timeRow').hidden = $('#fAllDay').checked;
+  $('#formMsg').textContent = ''; $('#formMsg').className = 'msg';
+}
+function disarm() { const b = $('#delBtn'); b.classList.remove('armed'); b.textContent = 'Delete'; }
+
+/* ---------- routing ---------- */
+function route() {
+  const h = location.hash.slice(1);
+  let m;
+  if ((m = h.match(/^day-(\d{4})-(\d{2})-(\d{2})$/))) {
+    const k = `${m[1]}-${m[2]}-${m[3]}`;
+    if (S.day !== k) { S.day = k; fillForm(null); }
+    S.year = +m[1];
+    $('#yearView').hidden = true; $('#dayView').hidden = false; $('#yearNav').hidden = true;
+    $('#viewSub').textContent = 'Day view';
+    renderDay();
+    const tl = $('#timeline'); if (!tl.dataset.scrolled) { tl.scrollTop = 7 * HOUR_PX; tl.dataset.scrolled = 1; }
+  } else {
+    if ((m = h.match(/^year-(\d{4})$/))) S.year = +m[1];
+    else if (h === '' || h === 'year') S.year = START_YEAR;
+    syncYearPick();
+    S.day = null; $('#timeline').dataset.scrolled = '';
+    $('#yearView').hidden = false; $('#dayView').hidden = true; $('#yearNav').hidden = false;
+    $('#viewSub').textContent = 'Year at a Glance';
+    renderYear();
+  }
+}
+const go = h => { if (location.hash === '#' + h) route(); else location.hash = h; };
+const yearHash = y => 'year-' + y;
+function syncYearPick() {
+  const sel = $('#yearPick'), lo = Math.min(2020, S.year - 10), hi = Math.max(2060, S.year + 10);
+  if (+sel.dataset.lo !== lo || +sel.dataset.hi !== hi) {
+    sel.innerHTML = Array.from({ length: hi - lo + 1 }, (_, i) => `<option value="${lo + i}">${lo + i}</option>`).join('');
+    sel.dataset.lo = lo; sel.dataset.hi = hi;
+  }
+  sel.value = S.year;
+}
+function render() { applyPrefs(); S.day ? renderDay() : renderYear(); }
+
+/* ---------- storage ---------- */
+let coll = null;
+function setStatus(ok, text) { const s = $('#status'); s.classList.toggle('ok', ok); s.querySelector('span').textContent = text; }
+async function persistEvent(e) { S.events[e.id] = e; lsWrite(); if (coll) try { await coll.doc(e.id).set({ ...e, kind: 'event' }); } catch (err) { flashErr(err); } }
+async function removeEvent(id) { delete S.events[id]; lsWrite(); if (coll) try { await coll.doc(id).delete(); } catch (err) { flashErr(err); } }
+let prefTimer;
+function persistPrefs() { lsWrite(); clearTimeout(prefTimer); prefTimer = setTimeout(() => { if (coll) coll.doc('prefs').set({ ...S.prefs, kind: 'prefs' }).catch(flashErr); }, 500); }
+function flashErr(err) { setStatus(false, 'Couldn’t save to your account; saved in this browser'); console.warn(err); }
+
+async function initStore() {
+  const cached = lsRead();
+  if (cached) { S.events = cached.events || {}; S.prefs = normalizePrefs(cached.prefs || {}); }
+  setStatus(false, 'Saved in this browser');
+  const cl = window.claude;
+  if (!cl?.use) return;
+  try {
+    const [db, user] = await Promise.all([cl.use('db'), cl.use('user')]);
+    if (!db || !user) return;
+    const id = await user.id();
+    const c = db.collection('data/users/' + id);
+    let first = true;
+    const timer = setTimeout(() => { if (first) setStatus(false, 'Saved in this browser (account not reachable)'); }, 10000);
+    c.onSnapshot(snap => {
+      clearTimeout(timer);
+      const ev = {}; let prefs = null;
+      snap.docs.forEach(d => { const v = d.data(); if (!v) return; if (d.id === 'prefs') prefs = v; else if (v.kind === 'event') { const { kind, ...rest } = v; ev[d.id] = rest; } });
+      if (first) {
+        first = false; coll = c;
+        // carry over anything made in this browser before syncing
+        for (const [k, e] of Object.entries(S.events)) if (!ev[k]) { ev[k] = e; c.doc(k).set({ ...e, kind: 'event' }).catch(() => {}); }
+        if (!prefs && cached?.prefs) c.doc('prefs').set({ ...S.prefs, kind: 'prefs' }).catch(() => {});
+      }
+      S.events = ev;
+      if (prefs) { const { kind, ...p } = prefs; S.prefs = normalizePrefs(p); syncSettingsUI(); }
+      lsWrite(); setStatus(true, 'Saved to your account');
+      for (const k in holCache) delete holCache[k];
+      scheduleRender();
+    }, err => { clearTimeout(timer); coll = null; setStatus(false, 'Saved in this browser (account not reachable)'); console.warn(err); });
+  } catch (err) { console.warn(err); }
+}
+
+/* ---------- settings UI ---------- */
+function syncSettingsUI() {
+  syncHolidayUI(); $('#sHolColor').value = S.prefs.holColor;
+  $('#sStr').value = S.prefs.holStr; $('#sStrVal').textContent = S.prefs.holStr + '%';
+  $('#sWeekend').checked = S.prefs.weekend;
+  $$('input[name=ws]').forEach(i => i.checked = +i.value === S.prefs.weekStart);
+  $$('#sPresets input').forEach(i => i.checked = i.value === S.prefs.holColor);
+  $('#sTypeShade').checked = S.prefs.typeShade; $('#sTStr').value = S.prefs.typeStr; $('#sTStrVal').textContent = S.prefs.typeStr + '%';
+  if (!$('#sTypes').contains(document.activeElement)) renderTypesEditor();
+  renderTypeSelect($('#fType').value);
+}
+const XICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 4 8 8M12 4l-8 8"/></svg>';
+function renderTypesEditor() {
+  $('#sTypes').innerHTML = S.prefs.types.map(t => `<div class="trow" data-id="${esc(t.id)}">
+    <input type="color" data-f="color" value="${esc(t.color)}" aria-label="Color for ${esc(t.name)}">
+    <input type="text" data-f="name" value="${esc(t.name)}" maxlength="40" aria-label="Type name">
+    <label class="sh"><input type="checkbox" data-f="shade" ${t.shade ? 'checked' : ''}> Shade</label>
+    <button type="button" class="btn ghost icon" data-del aria-label="Delete ${esc(t.name)}">${XICON}</button></div>`).join('');
+}
+function renderTypeSelect(val) {
+  const sel = $('#fType');
+  sel.innerHTML = S.prefs.types.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('') + '<option value="">No type</option>';
+  sel.value = S.prefs.types.some(t => t.id === val) ? val : '';
+  const t = S.prefs.types.find(x => x.id === sel.value);
+  $('#fTypeDot').style.background = t ? t.color : 'var(--line)';
+}
+/* holiday editor */
+const ORD = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: '5th', '-1': 'Last' };
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+function ruleText(r) {
+  let t = '';
+  if (r.type === 'fixed') t = `${MONTHS[r.month - 1]} ${r.day}`;
+  else if (r.type === 'nth') t = `${ORD[r.n]} ${WEEKDAYS[r.wd]} of ${MONTHS[r.month - 1]}`;
+  else if (r.type === 'before') t = `${WEEKDAYS[r.wd]} on or before ${MONTHS[r.month - 1]} ${r.day}`;
+  else if (r.type === 'easter') t = 'Easter Sunday';
+  else if (r.type === 'date') return r.date ? `${fmtShort(r.date)} only` : 'One date';
+  if (r.offset) t = `${plural(Math.abs(r.offset), 'day')} ${r.offset < 0 ? 'before' : 'after'} ${r.type === 'easter' ? 'Easter' : 'the ' + t}`;
+  return t + (r.since ? `, from ${r.since}` : '');
+}
+const setHol = patch => setPref({ hol: { ...S.prefs.hol, ...patch } });
+const updateHol = (id, patch) => setHol({ list: S.prefs.hol.list.map(r => r.id === id ? { ...r, ...patch } : r) });
+function syncHolidayUI() {
+  const H = S.prefs.hol;
+  $('#sHolShow').checked = H.show;
+  if (document.activeElement !== $('#sHolLabel')) $('#sHolLabel').value = H.label || '';
+  $('#sHolObs').value = H.observe;
+  if (!$('#sHolPreset').options.length) $('#sHolPreset').innerHTML = Object.entries(HOLIDAY_PRESETS).map(([k, v]) => `<option value="${k}">${esc(v.title)}</option>`).join('');
+  if (!$('#sHolApply').classList.contains('armed')) $('#sHolPreset').value = HOLIDAY_PRESETS[H.preset] ? H.preset : 'OR';
+  $$('#settings .hols, #sHolAdd, #sHolLabel, #sHolObs').forEach(el => el.closest('.field, button').style.opacity = H.show ? '' : '.55');
+  if (!S.holEdit) renderHolList();
+}
+function renderHolList() {
+  const y = S.year, H = S.prefs.hol;
+  $('#sHolYear').textContent = y;
+  const rows = H.list.map(r => ({ r, d: (!r.since || y >= r.since) ? ruleDate(r, y) : null })).sort((p, q) => (p.d ? p.d.getTime() : 9e15) - (q.d ? q.d.getTime() : 9e15));
+  const obsOf = new Map(); for (const [k, h] of holidays(y)) if (h.observed) obsOf.set(h.name.replace(/ \(observed\)$/, ''), k);
+  const html = rows.map(({ r, d }) => {
+    const when = d && d.getFullYear() === y ? `${DOW[d.getDay()]}, ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}` : `Not in ${y}`;
+    const ob = r.on && H.show && obsOf.has(r.name) ? ` · observed ${fmtShort(obsOf.get(r.name)).replace(/, \d{4}$/, '')}` : '';
+    const row = `<div class="hrow ${r.on ? '' : 'off'}" data-id="${esc(r.id)}">
+      <input type="checkbox" data-f="on" ${r.on ? 'checked' : ''} aria-label="Include ${esc(r.name)}">
+      <div class="hmain"><b>${esc(r.name)}</b><small>${esc(when + ob)} · ${esc(ruleText(r))}</small></div>
+      <button type="button" class="btn ghost" data-edit>Edit</button>
+      <button type="button" class="btn ghost icon" data-del aria-label="Delete ${esc(r.name)}">${XICON}</button></div>`;
+    return row + (S.holEdit === r.id ? holForm(r) : '');
+  }).join('');
+  $('#sHols').innerHTML = (html || '<div class="hempty">No holidays yet. Use Add holiday, or start from a list above.</div>') + (S.holEdit === 'new' ? holForm(null) : '');
+  if (S.holEdit) { holFormUpdate(); }
+}
+function holForm(r) {
+  r = r || { name: '', type: 'fixed', month: 1, day: 1, n: 1, wd: 1, offset: 0, obs: true, on: true };
+  const mOpts = MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join(''), wOpts = WEEKDAYS.map((w, i) => `<option value="${i}">${w}</option>`).join('');
+  const nOpts = Object.entries(ORD).sort((a, b) => (+a[0] < 0) - (+b[0] < 0) || a[0] - b[0]).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  return `<form class="hedit" id="hForm" autocomplete="off" data-type="${esc(r.type)}">
+    <label class="field"><span>Name</span><input type="text" id="hName" required maxlength="60" value="${esc(r.name)}" placeholder="e.g. Company founding day"></label>
+    <label class="field"><span>Date rule</span><select id="hType">
+      <option value="fixed">Same date every year</option><option value="nth">A weekday in a month (e.g. 3rd Monday of January)</option>
+      <option value="before">A weekday on or before a date (e.g. Monday on or before May 24)</option><option value="easter">Based on Easter</option><option value="date">One date only (e.g. an office closure)</option></select></label>
+    <div class="row" data-for="nth"><label class="field"><span>Which</span><select id="hN">${nOpts}</select></label><label class="field"><span>Weekday</span><select id="hWdN">${wOpts}</select></label></div>
+    <div class="row" data-for="before"><label class="field"><span>Weekday</span><select id="hWdB">${wOpts}</select></label></div>
+    <div class="row" data-for="fixed nth before"><label class="field"><span>Month</span><select id="hMonth">${mOpts}</select></label>
+      <label class="field" data-for="fixed before"><span>Day</span><input type="number" id="hDay" min="1" max="31" value="${r.day || 1}"></label></div>
+    <label class="field" data-for="date"><span>Date</span><input type="date" id="hDate" value="${esc(r.date || `${S.year}-01-01`)}"></label>
+    <div class="row" data-for="fixed nth before easter">
+      <label class="field"><span>Days after (minus for before)</span><input type="number" id="hOffset" min="-60" max="60" value="${r.offset || 0}"></label>
+      <label class="field"><span>First year (optional)</span><input type="number" id="hSince" min="1900" max="2200" value="${r.since || ''}" placeholder="Every year"></label></div>
+    <label class="check" data-for="fixed nth before easter"><input type="checkbox" id="hObs" ${r.obs ? 'checked' : ''}> Move to a weekday when it falls on a weekend</label>
+    <p class="note" id="hPreview" role="status"></p>
+    <div class="actions"><button class="btn primary" type="submit">${r.id ? 'Save holiday' : 'Add holiday'}</button><button class="btn" type="button" id="hCancel">Cancel</button></div>
+  </form>`;
+}
+function holFormRead() {
+  const type = $('#hType').value, r = { type, name: $('#hName').value.trim() };
+  if (type === 'date') return { ...r, date: $('#hDate').value, offset: 0, obs: false };
+  r.offset = Math.max(-60, Math.min(60, parseInt($('#hOffset').value, 10) || 0));
+  const since = parseInt($('#hSince').value, 10); r.since = since >= 1900 && since <= 2200 ? since : undefined;
+  r.obs = $('#hObs').checked;
+  if (type === 'fixed' || type === 'before') { r.month = +$('#hMonth').value; r.day = Math.max(1, Math.min(31, parseInt($('#hDay').value, 10) || 1)); }
+  if (type === 'nth') { r.month = +$('#hMonth').value; r.n = +$('#hN').value; r.wd = +$('#hWdN').value; }
+  if (type === 'before') r.wd = +$('#hWdB').value;
+  return r;
+}
+function holFormUpdate() {
+  const f = $('#hForm'); if (!f) return;
+  const type = $('#hType').value;
+  f.querySelectorAll('[data-for]').forEach(el => el.hidden = !el.dataset.for.split(' ').includes(type));
+  const r = holFormRead(), d = r.type !== 'date' && r.since && S.year < r.since ? null : ruleDate(r, S.year);
+  $('#hPreview').textContent = r.type === 'date' && !r.date ? 'Pick a date.' :
+    r.type === 'fixed' && new Date(S.year, r.month - 1, r.day).getMonth() !== r.month - 1 ? `${MONTHS[r.month - 1]} doesn't have a day ${r.day} in ${S.year}.` :
+    d && d.getFullYear() === S.year ? `In ${S.year} this falls on ${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}.` : `This holiday isn't in ${S.year}.`;
+}
+function openHolForm(id) {
+  S.holEdit = id; renderHolList();
+  const r = S.prefs.hol.list.find(x => x.id === id);
+  if (r) {
+    $('#hType').value = r.type; if (r.month) $('#hMonth').value = r.month;
+    if (r.type === 'nth') { $('#hN').value = r.n; $('#hWdN').value = r.wd; }
+    if (r.type === 'before') $('#hWdB').value = r.wd;
+  }
+  holFormUpdate(); $('#hName').focus();
+  $('#hForm').scrollIntoView({ block: 'nearest' });
+}
+function closeHolForm() { S.holEdit = null; renderHolList(); }
+
+function updateType(id, patch) { setPref({ types: S.prefs.types.map(t => t.id === id ? { ...t, ...patch } : t) }); }
+function setPref(p) { Object.assign(S.prefs, p); for (const k in holCache) delete holCache[k]; syncSettingsUI(); render(); persistPrefs(); }
+
+/* ---------- PDF export ---------- */
+const IN = 72, MM = 72 / 25.4;
+const PAPER_GROUPS = [
+  ['Office and home printers', [
+    ['letter', 'Letter', 8.5, 11, 'in'], ['legal', 'Legal', 8.5, 14, 'in'], ['tabloid', 'Tabloid / Ledger', 11, 17, 'in'], ['superb', 'Super B', 13, 19, 'in'],
+    ['a4', 'A4', 210, 297, 'mm'], ['a3', 'A3', 297, 420, 'mm'], ['a3plus', 'A3+', 329, 483, 'mm']]],
+  ['Large format: engineering and architectural', [
+    ['ansic', 'ANSI C', 17, 22, 'in'], ['archc', 'Arch C', 18, 24, 'in'], ['ansid', 'ANSI D', 22, 34, 'in'], ['archd', 'Arch D', 24, 36, 'in'],
+    ['arche1', 'Arch E1', 30, 42, 'in'], ['ansie', 'ANSI E', 34, 44, 'in'], ['arche', 'Arch E', 36, 48, 'in']]],
+  ['Large format: ISO', [['a2', 'A2', 420, 594, 'mm'], ['a1', 'A1', 594, 841, 'mm'], ['a0', 'A0', 841, 1189, 'mm'], ['2a0', '2A0', 1189, 1682, 'mm']]],
+  ['Jumbo posters and banners', [
+    ['p20x30', 'Poster', 20, 30, 'in'], ['p27x40', 'Movie poster', 27, 40, 'in'], ['p40x60', 'Jumbo poster', 40, 60, 'in'],
+    ['p48x72', 'Jumbo poster', 48, 72, 'in'], ['p48x96', 'Wall banner (4 × 8 ft)', 48, 96, 'in']]],
+];
+const PAPER = {};
+for (const [, list] of PAPER_GROUPS) for (const [k, n, a, b, u] of list) PAPER[k] = { name: n, w: a * (u === 'in' ? IN : MM), h: b * (u === 'in' ? IN : MM), dims: `${a} × ${b} ${u}` };
+const UNIT = { in: IN, cm: MM * 10, mm: MM };
+const MAX_IN = 200; // the largest page a PDF allows
+const pdfText = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/×/g, 'x').replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '?');
+
+function paperPts(o) {
+  let w, h;
+  if (o.size === 'custom') { w = o.cw * UNIT[o.cu]; h = o.ch * UNIT[o.cu]; }
+  else ({ w, h } = PAPER[o.size]);
+  const lo = Math.min(w, h), hi = Math.max(w, h);
+  return o.orient === 'landscape' ? [hi, lo] : [lo, hi];
+}
+function paperProblem(o) {
+  if (o.size !== 'custom') return '';
+  const f = UNIT[o.cu] / IN;
+  if (!(o.cw > 0) || !(o.ch > 0)) return 'Enter a width and height for the custom size.';
+  if (Math.min(o.cw, o.ch) * f < 3) return 'Custom paper must be at least 3 inches on each side.';
+  if (Math.max(o.cw, o.ch) * f > MAX_IN) return `PDF pages can be at most ${MAX_IN} inches (about 5 m) on a side.`;
+  return '';
+}
+function planPages(o, ev) {
+  const y = S.year, pages = [];
+  if (o.year) pages.push({ t: 'year' });
+  for (let m = o.from; m <= o.to; m++) {
+    if (o.months) pages.push({ t: 'month', m });
+    if (o.days !== 'none') {
+      const n = new Date(y, m + 1, 0).getDate();
+      for (let d = 1; d <= n; d++) { const k = key(y, m, d); if (o.days === 'all' || ev[k]?.length) pages.push({ t: 'day', k, m }); }
+    }
+  }
+  return pages;
+}
+
+// Calendar text is sized from each day box, so it grows with the printed calendar.
+// [share of box height, share of box width] for the date number and for event text.
+const YEAR_RATIOS = { num: [.24, .2], ev: [.16, .135] }, MONTH_RATIOS = { num: [.16, .1], ev: [.1, .068] };
+const TEXT_SCALE = { smaller: .85, standard: 1, larger: 1.2, largest: 1.45 };
+let textK = 1;
+function cellText(cw, ch, r) {
+  return { numSz: Math.min(ch * r.num[0], cw * r.num[1]) * textK, evSz: Math.max(4, Math.min(ch * r.ev[0], cw * r.ev[1]) * textK) };
+}
+function pageMetrics(w, h, o) {
+  const s = Math.min(w, h) / 792, baseM = Math.max(20, 26 * s);
+  return { s, M: o.margin === 'narrow' ? Math.max(12, baseM * .5) : baseM };
+}
+function yearGeometry(w, h, o) {
+  const { s, M } = pageMetrics(w, h, o);
+  const gTop = M + 42 * s, gx = 12 * s, gy = 12 * s, availW = w - 2 * M, availH = h - M - gTop;
+  let best = null;
+  for (const cols of [2, 3, 4, 6]) {
+    const rows = 12 / cols, mw = (availW - gx * (cols - 1)) / cols, mh = (availH - gy * (rows - 1)) / rows;
+    const score = Math.abs(Math.log(mw / mh / 1.2));
+    if (!best || score < best.score) best = { cols, mw, mh, score };
+  }
+  const { mw, mh } = best, cw = mw / 7;
+  const titleSz = Math.min(mw * .046, mh * .075) * Math.min(textK, 1.2);
+  const chEst = (mh - titleSz * 1.2) / 6.6, bandH = Math.min(chEst * .32, cw * .3), dowSz = bandH * .6;
+  const ch5 = (mh - titleSz * 1.2 - bandH) / 5;
+  return { ...best, gx, gy, gTop, titleSz, bandH, dowSz, cw, ch5, ...cellText(cw, ch5, YEAR_RATIOS) };
+}
+
+function buildPDF(o) {
+  textK = TEXT_SCALE[o.textSize] || 1;
+  const { jsPDF } = window.jspdf;
+  const [w, h] = paperPts(o);
+  const doc = new jsPDF({ unit: 'pt', format: [w, h], orientation: w > h ? 'landscape' : 'portrait', compress: true });
+  const y = S.year, hol = holidays(y), ev = byDate(), ws = S.prefs.weekStart;
+  const pages = planPages(o, ev);
+  const yearPage = o.year ? 1 : null, monthPage = {}, dayPage = {};
+  pages.forEach((p, i) => { if (p.t === 'month') monthPage[p.m] = i + 1; if (p.t === 'day') dayPage[p.k] = i + 1; });
+  const dayKeys = pages.filter(p => p.t === 'day').map(p => p.k), dayIdx = {};
+  dayKeys.forEach((k, i) => dayIdx[k] = i);
+
+  const { s, M } = pageMetrics(w, h, o);
+  const inner = o.margin === 'binder' ? Math.max(54, 40 * s) : 0;
+  const G = c => { if (!o.gray) return c; const l = Math.round(.299 * c[0] + .587 * c[1] + .114 * c[2]); return [l, l, l]; };
+  const F = c => doc.setFillColor(...G(c)), T = c => doc.setTextColor(...G(c)), D = c => doc.setDrawColor(...G(c));
+  const ACC = o.gray ? [60, 60, 60] : [43, 92, 138], INK = [27, 37, 50], MUT = [100, 112, 128], LINE = [169, 180, 194], SOFT = [222, 227, 233], WE = [244, 246, 249], WHITE = [255, 255, 255];
+  const HOL = mixWhite(S.prefs.holColor, S.prefs.holStr / 100), OBS = mixWhite(S.prefs.holColor, S.prefs.holStr / 200);
+  const HINK = o.gray ? [35, 35, 35] : darken(S.prefs.holColor, .55);
+  const evC = e => hexRgb(evColor(e));
+  const fit = (txt, maxW) => { txt = pdfText(txt); if (doc.getTextWidth(txt) <= maxW) return txt; while (txt.length > 1 && doc.getTextWidth(txt + '...') > maxW) txt = txt.slice(0, -1); return txt + '...'; };
+  // jsPDF flips y when writing /Rect; bottom edge + negative height gives a normalized rectangle strict viewers accept.
+  const link = (x, yy, ww, hh, p) => { if (p) doc.link(x, yy + hh, ww, -hh, { pageNumber: p }); };
+  const navLink = (txt, x, base, p, align = 'left') => {
+    if (!p) return 0;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9 * s); T(ACC);
+    const tw = doc.getTextWidth(txt), xx = align === 'right' ? x - tw : x;
+    doc.text(txt, xx, base); link(xx - 2, base - 9 * s, tw + 4, 12 * s, p);
+    return tw;
+  };
+  const label = (t, x, base, sz = 8.5) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(sz * s); T(MUT); doc.setCharSpace(1.5 * s); doc.text(t, x, base); doc.setCharSpace(0); };
+  const shortDate = k => { const d = parse(k); return `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`; };
+  const hourLbl = hr => hr % 12 === 0 ? (hr % 24 === 0 ? '12am' : '12pm') : (hr % 12) + (hr % 24 < 12 ? 'am' : 'pm');
+
+  function drawCell(cx, cy, cw, ch, k, d, wd, c) {
+    const hh = hol.get(k), list = ev[k] || [], we = wd === 0 || wd === 6;
+    let bands = [...(hh ? [hh.observed ? OBS : HOL] : []), ...(o.typeShade ? shadedTypes(list).map(t => mixWhite(t.color, S.prefs.typeStr / 100)) : [])].slice(0, 4);
+    if (!bands.length && S.prefs.weekend && we) bands = [WE];
+    bands.forEach((b, j) => { F(b); doc.rect(cx + cw * j / bands.length, cy, cw / bands.length + (j < bands.length - 1 ? .2 : 0), ch, 'F'); });
+    D(LINE); doc.rect(cx, cy, cw, ch, 'S');
+    const pd = c.pd;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(c.numSz); T(hh ? HINK : we ? MUT : INK);
+    doc.text(String(d), cx + pd, cy + pd + c.numSz * .8);
+    let bottom = cy + ch - pd, hLines = [];
+    const hSz = Math.max(3.8, c.evSz * .92);
+    let hSzFit = hSz;
+    if (hh) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(hSz);
+      const longest = Math.max(...pdfText(hh.name).split(' ').map(wd => doc.getTextWidth(wd)));
+      if (longest > (cw - 2 * pd) * .94) { hSzFit = Math.max(3, hSz * (cw - 2 * pd) * .92 / longest); doc.setFontSize(hSzFit); }
+      hLines = doc.splitTextToSize(pdfText(hh.name), cw - 2 * pd).slice(0, 3); bottom -= hLines.length * hSzFit * 1.1;
+    }
+    if (c.showEv && list.length) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(c.evSz);
+      const lineH = c.evSz * 1.2, textW = cw - 2 * pd - c.evSz;
+      let ty = cy + pd + c.numSz + c.evSz * .95;
+      const cap = Math.max(0, Math.floor((bottom - ty + lineH * .8) / lineH));
+      const n = list.length > cap ? Math.max(0, cap - 1) : list.length;
+      // spare lines in the box go to long titles (up to 3 lines each) instead of cutting them off
+      let budget = cap - (list.length > n ? 1 : 0);
+      for (let j = 0; j < n; j++) {
+        const e = list[j];
+        const txt = pdfText((c.times && !e.allDay && e.start ? fmtTime(e.start) + ' ' : '') + e.title);
+        let lines = doc.splitTextToSize(txt, textW);
+        const per = Math.max(1, Math.min(3, budget - (n - 1 - j)));
+        if (lines.length > per) lines = [...lines.slice(0, per - 1), fit(lines.slice(per - 1).join(' '), textW)];
+        budget -= lines.length;
+        F(evC(e)); doc.rect(cx + pd, ty - c.evSz * .62, c.evSz * .6, c.evSz * .6, 'F'); T(INK);
+        for (const ln of lines) { doc.text(ln, cx + pd + c.evSz * .9, ty); ty += lineH; }
+      }
+      if (list.length > n && cap > 0) { T(MUT); doc.text(`+${list.length - n} more`, cx + pd, ty); }
+    }
+    if (hLines.length) { doc.setFont('helvetica', 'bold'); doc.setFontSize(hSzFit); T(HINK); hLines.forEach((ln, j) => doc.text(ln, cx + pd, cy + ch - pd - (hLines.length - 1 - j) * hSzFit * 1.1)); }
+    link(cx, cy, cw, ch, dayPage[k] || c.fallback);
+  }
+
+  function monthGrid(x0, y0, mw, mh, m, c) {
+    const cw = mw / 7, bandH = c.bandH;
+    F(ACC); doc.rect(x0, y0, mw, bandH, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(c.dowSz); T(WHITE);
+    const longDow = c.longDow && doc.getTextWidth('WEDNESDAY') < cw * .9;
+    for (let i = 0; i < 7; i++) doc.text((longDow ? WEEKDAYS : DOW)[(i + ws) % 7].toUpperCase(), x0 + cw * i + cw / 2, y0 + bandH * .68, { align: 'center' });
+    const days = new Date(y, m + 1, 0).getDate(), lead = (new Date(y, m, 1).getDay() - ws + 7) % 7, weeks = Math.ceil((lead + days) / 7);
+    const cTop = y0 + bandH, ch = (mh - bandH) / weeks;
+    const sz = cellText(cw, ch, c.ratios), cfg = { ...c, ...sz, pd: Math.max(1.5, Math.min(cw, ch) * .05), times: c.times || cw >= 100 };
+    doc.setLineWidth(c.lw);
+    for (let i = 0; i < weeks * 7; i++) {
+      const d = i - lead + 1, cx = x0 + (i % 7) * cw, cy = cTop + Math.floor(i / 7) * ch;
+      if (d < 1 || d > days) { D(SOFT); doc.rect(cx, cy, cw, ch, 'S'); continue; }
+      drawCell(cx, cy, cw, ch, key(y, m, d), d, new Date(y, m, d).getDay(), cfg);
+    }
+  }
+
+  function yearPageDraw() {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(30 * s); T(INK);
+    doc.text(String(y), M, M + 24 * s);
+    const yw = doc.getTextWidth(String(y));
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5 * s); T(MUT);
+    doc.setCharSpace(2 * s); doc.text('YEAR AT A GLANCE', M + yw + 12 * s, M + 24 * s); doc.setCharSpace(0);
+    const legend = [];
+    if (S.prefs.hol.show && S.prefs.hol.list.some(r => r.on)) legend.push([HOL, S.prefs.hol.label || 'Holiday']);
+    if (o.typeShade && S.prefs.typeShade) for (const t of S.prefs.types) if (t.shade) legend.push([mixWhite(t.color, S.prefs.typeStr / 100), t.name]);
+    if (legend.length) {
+      doc.setFont('helvetica', 'normal');
+      let fs = 8 * s; doc.setFontSize(fs);
+      const need = legend.reduce((a, [, l]) => a + doc.getTextWidth(pdfText(l)) + 30 * s, 0), avail = w - 2 * M - yw - 150 * s;
+      if (need > avail) { fs = Math.max(4.5, fs * avail / need); doc.setFontSize(fs); }
+      const k = fs / (8 * s); let lx = w - M;
+      doc.setLineWidth(.6 * s); D(LINE);
+      for (let i = legend.length - 1; i >= 0; i--) {
+        const [c, l] = legend[i], t = pdfText(l), tw = doc.getTextWidth(t);
+        lx -= tw; T(INK); doc.text(t, lx, M + 23 * s);
+        lx -= 20 * s * k; F(c); doc.rect(lx, M + 23 * s - 7.5 * s * k, 14 * s * k, 9 * s * k, 'FD');
+        lx -= 10 * s * k;
+      }
+    }
+    D(INK); doc.setLineWidth(1.6 * s); doc.line(M, M + 31 * s, w - M, M + 31 * s);
+    const g = yearGeometry(w, h, o);
+    const { cols, mw, mh, gx, gy, gTop, titleSz, bandH, dowSz } = g;
+    for (let m = 0; m < 12; m++) {
+      const x0 = M + (m % cols) * (mw + gx), y0 = gTop + Math.floor(m / cols) * (mh + gy);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(titleSz); T(ACC);
+      doc.setCharSpace(titleSz * .11); doc.text(MONTHS[m].toUpperCase(), x0, y0 + titleSz * .8); doc.setCharSpace(0);
+      const mTarget = monthPage[m] || dayPage[dayKeys.find(k => parse(k).getMonth() === m)];
+      link(x0, y0, mw, titleSz * 1.1, mTarget);
+      const th = titleSz * 1.2;
+      monthGrid(x0, y0 + th, mw, mh - th, m, { bandH, dowSz, longDow: true, ratios: YEAR_RATIOS, times: false, showEv: o.evTitles, lw: Math.max(.4, .5 * s), fallback: monthPage[m] });
+    }
+  }
+
+  function monthPageDraw(m) {
+    const L = M + inner, R = w - M, W = R - L, ny = M + 9 * s;
+    navLink('< Year overview', L, ny, yearPage);
+    let rx = R;
+    if (monthPage[m + 1]) rx -= navLink(`${MONTHS[m + 1]} >`, rx, ny, monthPage[m + 1], 'right') + 18 * s;
+    if (monthPage[m - 1]) navLink(`< ${MONTHS[m - 1]}`, rx, ny, monthPage[m - 1], 'right');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(34 * s); T(INK);
+    doc.text(MONTHS[m], L, M + 46 * s);
+    const tw = doc.getTextWidth(MONTHS[m]);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(20 * s); T(MUT); doc.text(String(y), L + tw + 12 * s, M + 46 * s);
+    const gridTop = M + 60 * s, bottom = h - M;
+    const notesH = Math.max(60 * s, (bottom - gridTop) * .15), gridH = bottom - gridTop - notesH - 14 * s;
+    monthGrid(L, gridTop, W, gridH, m, { bandH: 15 * s, dowSz: 8 * s, longDow: true, ratios: MONTH_RATIOS, times: true, showEv: true, lw: .6 * s, fallback: null });
+    const ny2 = gridTop + gridH + 26 * s;
+    label('NOTES', L, ny2);
+    D(LINE); doc.setLineWidth(.5 * s);
+    for (let ly = ny2 + 20 * s; ly <= bottom + .5; ly += 20 * s) doc.line(L, ly, R, ly);
+  }
+
+  function dayPageDraw(k) {
+    const d = parse(k), m = d.getMonth(), hh = hol.get(k), L = M + inner, R = w - M, idx = dayIdx[k];
+    const prev = dayKeys[idx - 1], next = dayKeys[idx + 1], ny = M + 9 * s;
+    let x = L;
+    const yw = navLink('< Year overview', x, ny, yearPage); if (yw) x += yw + 18 * s;
+    navLink(`${MONTHS[m]} ${y}`, x, ny, monthPage[m]);
+    let rx = R;
+    if (next) rx -= navLink(`Next: ${shortDate(next)} >`, rx, ny, dayPage[next], 'right') + 18 * s;
+    if (prev) navLink(`< Prev: ${shortDate(prev)}`, rx, ny, dayPage[prev], 'right');
+    const top = M + 30 * s;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10 * s); T(MUT); doc.setCharSpace(2 * s);
+    doc.text(WEEKDAYS[d.getDay()].toUpperCase(), L, top); doc.setCharSpace(0);
+    doc.setFontSize(32 * s); T(INK);
+    doc.text(`${MONTHS[m]} ${d.getDate()}, ${y}`, L, top + 32 * s);
+    let cy = top + 44 * s;
+    if (hh) {
+      doc.setFontSize(10 * s); const t = pdfText(hh.name), tw = doc.getTextWidth(t);
+      F(hh.observed ? OBS : HOL); doc.rect(L, cy, tw + 14 * s, 16 * s, 'F');
+      T(HINK); doc.text(t, L + 7 * s, cy + 11 * s); cy += 26 * s;
+    }
+    // mini month, every date clickable when it has a page
+    const mdays = new Date(y, m + 1, 0).getDate(), mlead = (new Date(y, m, 1).getDay() - ws + 7) % 7;
+    const mcw = 20 * s, mch = 15 * s, mx = R - mcw * 7, my = top - 6 * s;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9 * s); T(ACC); doc.text(MONTHS[m].toUpperCase(), mx, my);
+    link(mx, my - 9 * s, mcw * 7, 12 * s, monthPage[m]);
+    doc.setFontSize(6.5 * s); T(MUT);
+    for (let i = 0; i < 7; i++) doc.text(DOW[(i + ws) % 7][0], mx + mcw * i + mcw / 2, my + 11 * s, { align: 'center' });
+    for (let dd = 1; dd <= mdays; dd++) {
+      const i = mlead + dd - 1, bx = mx + (i % 7) * mcw, by = my + 14 * s + Math.floor(i / 7) * mch, kk = key(y, m, dd), hk = hol.get(kk);
+      if (kk === k) { F(ACC); doc.rect(bx + 1, by + 1, mcw - 2, mch - 2, 'F'); T(WHITE); }
+      else if (hk) { F(hk.observed ? OBS : HOL); doc.rect(bx + 1, by + 1, mcw - 2, mch - 2, 'F'); T(HINK); }
+      else T(dayPage[kk] ? INK : MUT);
+      doc.setFont('helvetica', dayPage[kk] || kk === k ? 'bold' : 'normal'); doc.setFontSize(7.5 * s);
+      doc.text(String(dd), bx + mcw / 2, by + mch * .68, { align: 'center' });
+      if (kk !== k) link(bx, by, mcw, mch, dayPage[kk]);
+    }
+    cy = Math.max(cy, my + 14 * s + 6 * mch + 8 * s);
+    D(INK); doc.setLineWidth(1.2 * s); doc.line(L, cy, R, cy); cy += 20 * s;
+    (o.dayLayout === 'hourly' ? hourlyBody : agendaBody)(k, cy, L, R);
+  }
+
+  function agendaBody(k, cy, L, R) {
+    const list = ev[k] || [], timeW = 90 * s, textW = R - L - timeW;
+    label('SCHEDULE', L, cy); cy += 16 * s;
+    if (!list.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(10 * s); T(MUT); doc.text('No events', L, cy); cy += 18 * s; }
+    for (const e of list) {
+      if (cy > h - M - 60 * s) break;
+      F(evC(e)); doc.rect(L, cy - 9 * s, 3 * s, 12 * s, 'F');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10 * s); T(MUT);
+      doc.text(e.allDay ? 'All day' : pdfText(`${fmtTime(e.start)}${e.end ? ' - ' + fmtTime(e.end) : ''}`), L + 9 * s, cy);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5 * s); T(INK);
+      doc.splitTextToSize(pdfText(e.title), textW).forEach(ln => { doc.text(ln, L + timeW, cy); cy += 14 * s; });
+      if (e.notes) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5 * s); T([60, 70, 85]);
+        for (const ln of doc.splitTextToSize(pdfText(e.notes), textW)) { if (cy > h - M - 50 * s) break; doc.text(ln, L + timeW, cy); cy += 12 * s; }
+      }
+      cy += 9 * s;
+    }
+    cy += 8 * s;
+    if (cy < h - M - 40 * s) {
+      label('NOTES', L, cy);
+      D(LINE); doc.setLineWidth(.5 * s);
+      for (let ly = cy + 22 * s; ly <= h - M + .5; ly += 22 * s) doc.line(L, ly, R, ly);
+    }
+  }
+
+  function hourlyBody(k, top, L, R) {
+    const list = ev[k] || [], all = list.filter(e => e.allDay), timed = list.filter(e => !e.allDay && e.start);
+    const W = R - L, gap = 20 * s, leftW = W * .6, rx = L + leftW + gap, bottom = h - M;
+    // schedule column
+    label('SCHEDULE', L, top);
+    let y0 = top + 8 * s;
+    const adRow = 13 * s, adH = Math.max(20 * s, all.length * adRow + 8 * s), labW = 42 * s;
+    D(LINE); doc.setLineWidth(.5 * s); doc.rect(L, y0, leftW, adH, 'S');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7 * s); T(MUT); doc.text('ALL DAY', L + 3 * s, y0 + 12 * s);
+    all.forEach((e, i) => {
+      F(evC(e)); doc.rect(L + labW + 2 * s, y0 + 4 * s + i * adRow, 3 * s, 10 * s, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9 * s); T(INK); doc.text(fit(e.title, leftW - labW - 12 * s), L + labW + 9 * s, y0 + 12 * s + i * adRow);
+    });
+    y0 += adH + 6 * s;
+    const items = timed.map(e => { const st = toMin(e.start); let en = toMin(e.end); if (en == null || en <= st) en = st + 60; return { e, s: st, en: Math.min(en, 1440) }; }).sort((a, b) => a.s - b.s || b.en - a.en);
+    const h0 = Math.min(6, ...items.map(it => Math.floor(it.s / 60))), h1 = Math.max(22, ...items.map(it => Math.ceil(it.en / 60)));
+    const nH = h1 - h0, rowH = (bottom - y0) / nH;
+    for (let i = 0; i < nH; i++) {
+      const yy = y0 + i * rowH;
+      D(LINE); doc.setLineWidth(.5 * s); doc.line(L, yy, L + leftW, yy);
+      D(SOFT); doc.setLineDashPattern([1.5 * s, 2 * s], 0); doc.line(L + labW, yy + rowH / 2, L + leftW, yy + rowH / 2); doc.setLineDashPattern([], 0);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(Math.min(8.5 * s, rowH * .42)); T(MUT);
+      doc.text(hourLbl(h0 + i), L + 3 * s, yy + Math.min(10 * s, rowH * .48));
+    }
+    D(LINE); doc.line(L, y0 + nH * rowH, L + leftW, y0 + nH * rowH); doc.line(L + labW, y0, L + labW, y0 + nH * rowH);
+    // overlapping events side by side
+    let cluster = [], cEnd = -1; const placed = [];
+    const flush = () => { const cols = []; for (const it of cluster) { let c = cols.findIndex(end => end <= it.s); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = it.en; it.col = c; } cluster.forEach(it => it.n = cols.length); placed.push(...cluster); cluster = []; };
+    for (const it of items) { if (it.s >= cEnd && cluster.length) flush(); cluster.push(it); cEnd = Math.max(cEnd, it.en); }
+    if (cluster.length) flush();
+    const areaX = L + labW + 2 * s, areaW = leftW - labW - 4 * s;
+    for (const it of placed) {
+      const cw = areaW / it.n, ex = areaX + cw * it.col, ey = y0 + (it.s - h0 * 60) / 60 * rowH + .5, eh = Math.max((it.en - it.s) / 60 * rowH - 1, 11 * s);
+      F(mixWhite(evColor(it.e), .2)); doc.rect(ex, ey, cw - 2 * s, eh, 'F');
+      F(evC(it.e)); doc.rect(ex, ey, 2.5 * s, eh, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(Math.min(8.5 * s, eh * .7)); T(INK);
+      doc.text(fit(it.e.title, cw - 10 * s), ex + 6 * s, ey + Math.min(9.5 * s, eh * .78));
+      if (eh > 22 * s) { doc.setFont('helvetica', 'normal'); doc.setFontSize(7 * s); T(MUT); doc.text(pdfText(`${fmtTime(it.e.start)}${it.e.end ? ' - ' + fmtTime(it.e.end) : ''}`), ex + 6 * s, ey + 19 * s); }
+    }
+    // priorities, event notes, notes
+    const rw = R - rx; let ry = top;
+    label('TOP PRIORITIES', rx, ry);
+    D(LINE); doc.setLineWidth(.6 * s);
+    for (let i = 1; i <= 5; i++) { const yy = ry + i * 22 * s; doc.rect(rx, yy - 9 * s, 9 * s, 9 * s, 'S'); doc.line(rx + 15 * s, yy, R, yy); }
+    ry += 5 * 22 * s + 26 * s;
+    const withNotes = list.filter(e => e.notes);
+    if (withNotes.length) {
+      label('EVENT NOTES', rx, ry); ry += 15 * s;
+      for (const e of withNotes) {
+        if (ry > bottom - 90 * s) break;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5 * s); T(INK); doc.text(fit(e.title, rw), rx, ry); ry += 11 * s;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8 * s); T([60, 70, 85]);
+        for (const ln of doc.splitTextToSize(pdfText(e.notes), rw).slice(0, 6)) { doc.text(ln, rx, ry); ry += 10 * s; }
+        ry += 6 * s;
+      }
+      ry += 10 * s;
+    }
+    label('NOTES', rx, ry);
+    D(LINE); doc.setLineWidth(.5 * s);
+    for (let ly = ry + 20 * s; ly <= bottom + .5; ly += 20 * s) doc.line(rx, ly, R, ly);
+  }
+
+  pages.forEach((p, i) => {
+    if (i) doc.addPage([w, h], w > h ? 'landscape' : 'portrait');
+    if (p.t === 'year') yearPageDraw(); else if (p.t === 'month') monthPageDraw(p.m); else dayPageDraw(p.k);
+  });
+
+  if (o.bookmarks && doc.outline && pages.length > 1) {
+    if (yearPage) doc.outline.add(null, `${y} at a glance`, { pageNumber: 1 });
+    for (let m = o.from; m <= o.to; m++) {
+      const days = dayKeys.filter(k => parse(k).getMonth() === m), target = monthPage[m] || dayPage[days[0]];
+      if (!target) continue;
+      const node = doc.outline.add(null, `${MONTHS[m]} ${y}`, { pageNumber: target });
+      for (const k of days) { const d = parse(k); doc.outline.add(node, `${DOW[d.getDay()]} ${MONTHS[m].slice(0, 3)} ${d.getDate()}`, { pageNumber: dayPage[k] }); }
+    }
+    doc.setDisplayMode(null, null, 'UseOutlines');
+  }
+  return doc;
+}
+
+/* ---------- wiring ---------- */
+$('#fType').onchange = () => renderTypeSelect($('#fType').value);
+$('#editTypes').onclick = () => { syncSettingsUI(); open('settings'); $('#typesH').scrollIntoView({ block: 'start' }); };
+$('#sPresets').innerHTML = HOL_PRESETS.map((c, i) => `<label style="--c:${c}"><input type="radio" name="hp" value="${c}" aria-label="Preset shade ${i + 1}"><i></i></label>`).join('');
+buildHours();
+
+$('#yearGrid').addEventListener('click', e => { const b = e.target.closest('button.cell'); if (b) go('day-' + b.dataset.date); });
+$('#prevY').onclick = () => go(yearHash(S.year - 1));
+$('#nextY').onclick = () => go(yearHash(S.year + 1));
+$('#todayBtn').onclick = () => go('day-' + fmt(new Date()));
+$('#yearPick').onchange = e => go(yearHash(+e.target.value));
+$('#backYear').onclick = () => go(yearHash(S.year));
+$('#prevD').onclick = () => go('day-' + addDays(S.day, -1));
+$('#nextD').onclick = () => go('day-' + addDays(S.day, 1));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $$('.scrim').forEach(s => s.hidden = true); return; }
+  if (!S.day || /input|textarea|select/i.test(document.activeElement?.tagName)) return;
+  if (e.key === 'ArrowLeft') $('#prevD').click(); if (e.key === 'ArrowRight') $('#nextD').click();
+});
+
+$('#dayView').addEventListener('click', e => {
+  const b = e.target.closest('.ev'); if (b) { fillForm(S.events[b.dataset.id]); renderDay(); $('#fTitle').focus(); return; }
+  const hr = e.target.closest('.hr');
+  if (hr) { fillForm(null); const hh = +hr.dataset.h; $('#fStart').value = pad(hh) + ':00'; $('#fEnd').value = pad(Math.min(hh + 1, 23)) + (hh === 23 ? ':59' : ':00'); renderDay(); $('#fTitle').focus(); }
+});
+$('#fAllDay').onchange = () => $('#timeRow').hidden = $('#fAllDay').checked;
+$('#newBtn').onclick = () => { fillForm(null); renderDay(); $('#fTitle').focus(); };
+$('#delBtn').onclick = async () => {
+  const b = $('#delBtn');
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirm delete'; return; }
+  const id = S.editId; fillForm(null); await removeEvent(id); renderDay();
+};
+$('#evForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const title = $('#fTitle').value.trim(), allDay = $('#fAllDay').checked, start = $('#fStart').value, end = $('#fEnd').value;
+  const msg = $('#formMsg');
+  if (!title) { msg.textContent = 'Give the event a title.'; msg.className = 'msg err'; return; }
+  if (!allDay && !start) { msg.textContent = 'Pick a start time, or tick All day.'; msg.className = 'msg err'; return; }
+  if (!allDay && end && toMin(end) <= toMin(start)) { msg.textContent = 'The end time must be after the start time.'; msg.className = 'msg err'; return; }
+  const ev = { ...(S.editId ? S.events[S.editId] : {}), id: S.editId || ('e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)), date: S.day, title, allDay,
+    start: allDay ? '' : start, end: allDay ? '' : end, notes: $('#fNotes').value.trim(), type: $('#fType').value,
+    color: S.prefs.types.find(t => t.id === $('#fType').value)?.color || (S.editId && S.events[S.editId]?.color) || '#5a6878' };
+  if (ev.type) S.lastType = ev.type;
+  const wasEdit = !!S.editId;
+  S.editId = ev.id;
+  await persistEvent(ev);
+  fillForm(ev); renderDay();
+  msg.textContent = wasEdit ? 'Changes saved.' : 'Event added.'; msg.className = 'msg';
+});
+
+// drawers
+const open = id => { $('#' + id).hidden = false; $('#' + id + ' .close').focus(); };
+$('#openSettings').onclick = () => { syncSettingsUI(); open('settings'); };
+$('#openExport').onclick = () => { $('#xMsg').textContent = ''; $('#xTypeShade').checked = S.prefs.typeShade; updateExportUI(); open('export'); };
+$$('.scrim').forEach(s => { s.addEventListener('click', e => { if (e.target === s) s.hidden = true; }); s.querySelector('.close').onclick = () => s.hidden = true; });
+
+$('#sHolColor').oninput = e => setPref({ holColor: e.target.value });
+$('#sPresets').onchange = e => setPref({ holColor: e.target.value });
+$('#sStr').oninput = e => setPref({ holStr: +e.target.value });
+$('#sWeekend').onchange = e => setPref({ weekend: e.target.checked });
+$('#sTypeShade').onchange = e => setPref({ typeShade: e.target.checked });
+$('#sHolShow').onchange = e => setHol({ show: e.target.checked });
+$('#sHolLabel').oninput = e => setHol({ label: e.target.value.trim() });
+$('#sHolObs').onchange = e => setHol({ observe: e.target.value });
+$('#sHolPreset').onchange = () => { const b = $('#sHolApply'); b.classList.remove('armed', 'danger'); b.textContent = 'Use this list'; };
+$('#sHolApply').onclick = () => {
+  const b = $('#sHolApply'), key = $('#sHolPreset').value;
+  if (S.prefs.hol.list.length && !b.classList.contains('armed')) { b.classList.add('armed', 'danger'); b.textContent = 'Replace my list'; return; }
+  b.classList.remove('armed', 'danger'); b.textContent = 'Use this list';
+  S.holEdit = null; setHol({ ...makeHol(key), show: true });
+};
+$('#sHolAdd').onclick = () => openHolForm('new');
+$('#sHols').addEventListener('change', e => {
+  if (e.target.dataset.f === 'on') { const id = e.target.closest('.hrow').dataset.id; updateHol(id, { on: e.target.checked }); renderHolList(); return; }
+  if (e.target.closest('#hForm')) holFormUpdate();
+});
+$('#sHols').addEventListener('input', e => { if (e.target.closest('#hForm')) holFormUpdate(); });
+$('#sHols').addEventListener('click', e => {
+  const row = e.target.closest('.hrow');
+  if (e.target.closest('#hCancel')) { closeHolForm(); return; }
+  if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.closest('[data-edit]')) { S.holEdit === id ? closeHolForm() : openHolForm(id); return; }
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    if (!del.classList.contains('armed')) { del.classList.add('armed'); del.title = del.ariaLabel = 'Click again to delete'; return; }
+    if (S.holEdit === id) S.holEdit = null;
+    setHol({ list: S.prefs.hol.list.filter(r => r.id !== id) }); renderHolList();
+  }
+});
+$('#sHols').addEventListener('submit', e => {
+  e.preventDefault();
+  const r = holFormRead();
+  if (!r.name) { $('#hPreview').textContent = 'Give the holiday a name.'; $('#hName').focus(); return; }
+  if (r.type === 'date' && !r.date) { $('#hPreview').textContent = 'Pick a date.'; return; }
+  const id = S.holEdit;
+  if (id === 'new') setHol({ list: [...S.prefs.hol.list, { ...r, on: true, id: 'h' + Date.now().toString(36) }] });
+  else updateHol(id, { ...r, since: r.since });
+  closeHolForm();
+});
+$('#sTStr').oninput = e => setPref({ typeStr: +e.target.value });
+$('#sTypes').addEventListener('input', e => {
+  const row = e.target.closest('.trow'), f = e.target.dataset.f; if (!row || !f) return;
+  if (f === 'color') updateType(row.dataset.id, { color: e.target.value });
+  if (f === 'name') updateType(row.dataset.id, { name: e.target.value.trim() || 'Untitled type' });
+});
+$('#sTypes').addEventListener('change', e => { const row = e.target.closest('.trow'); if (row && e.target.dataset.f === 'shade') updateType(row.dataset.id, { shade: e.target.checked }); });
+$('#sTypes').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  const id = b.closest('.trow').dataset.id, used = Object.values(S.events).filter(ev => typeOf(ev)?.id === id).length;
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.setAttribute('aria-label', used ? `Delete type used by ${used} event${used > 1 ? 's' : ''}? Click again` : 'Click again to delete'); b.title = b.getAttribute('aria-label'); return; }
+  // keep each affected event's current color, then remove the type
+  for (const ev of Object.values(S.events)) if (typeOf(ev)?.id === id) persistEvent({ ...ev, type: '', color: evColor(ev) });
+  setPref({ types: S.prefs.types.filter(t => t.id !== id) }); renderTypesEditor();
+});
+$('#addType').onclick = () => {
+  const used = new Set(S.prefs.types.map(t => t.color)), color = ['#e07a2f','#2a9d8f','#8e6bbf','#3f8f5a','#b5893b','#c45b72','#6b7f99'].find(c => !used.has(c)) || '#6a8fd0';
+  const id = 't' + Date.now().toString(36);
+  setPref({ types: [...S.prefs.types, { id, name: 'New type', color, shade: true }] }); renderTypesEditor();
+  const inp = $(`#sTypes .trow[data-id="${id}"] input[data-f=name]`); inp.focus(); inp.select();
+};
+$$('input[name=ws]').forEach(i => i.onchange = () => setPref({ weekStart: +i.value }));
+$('.preview .pv-h').style.background = 'var(--hol-bg)'; $('.preview .pv-o').style.background = 'var(--obs-bg)';
+
+/* export panel */
+const XKEY = 'yearplanner.export.v2';
+const PRESETS = { wall: { year: true, months: false, days: 'none' }, planner: { year: true, months: true, days: 'all' }, events: { year: true, months: false, days: 'events' } };
+$('#xSize').innerHTML = PAPER_GROUPS.map(([g, list]) => `<optgroup label="${esc(g)}">${list.map(([k, n, a, b, u]) =>
+  `<option value="${k}">${esc(n.includes('ft') ? `${n}, ${a} × ${b} in` : `${n}, ${a} × ${b} ${u}`)}</option>`).join('')}</optgroup>`).join('') +
+  '<optgroup label="Other"><option value="custom">Custom size…</option></optgroup>';
+$('#xSize').value = 'tabloid';
+$('#xFrom').innerHTML = $('#xTo').innerHTML = MONTHS.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+$('#xTo').value = 11;
+const radioVal = n => $$(`input[name=${n}]`).find(i => i.checked)?.value;
+const setRadio = (n, v) => $$(`input[name=${n}]`).forEach(i => i.checked = i.value === v);
+function readExport() {
+  let from = +$('#xFrom').value, to = +$('#xTo').value; if (from > to) [from, to] = [to, from];
+  return { year: $('#xYear').checked, months: $('#xMonths').checked, days: $('#xDays').value, dayLayout: $('#xDayLayout').value, from, to,
+    size: $('#xSize').value, cw: parseFloat($('#xCW').value), ch: parseFloat($('#xCH').value), cu: $('#xCU').value,
+    orient: radioVal('xo'), margin: radioVal('xm'), textSize: radioVal('xt') || 'standard', evTitles: $('#xEvTitles').checked, typeShade: $('#xTypeShade').checked, gray: $('#xGray').checked, bookmarks: $('#xBookmarks').checked };
+}
+function writeExport(o) {
+  $('#xYear').checked = o.year; $('#xMonths').checked = o.months; $('#xDays').value = o.days; $('#xDayLayout').value = o.dayLayout;
+  $('#xFrom').value = o.from; $('#xTo').value = o.to; if (PAPER[o.size] || o.size === 'custom') $('#xSize').value = o.size;
+  $('#xCW').value = o.cw; $('#xCH').value = o.ch; $('#xCU').value = o.cu;
+  setRadio('xo', o.orient); setRadio('xm', o.margin); setRadio('xt', o.textSize || 'standard'); $('#xEvTitles').checked = o.evTitles; $('#xTypeShade').checked = o.typeShade !== false; $('#xGray').checked = o.gray; $('#xBookmarks').checked = o.bookmarks;
+}
+function matchPreset() {
+  const o = readExport(), full = o.from === 0 && o.to === 11;
+  const hit = Object.entries(PRESETS).find(([, p]) => full && p.year === o.year && p.months === o.months && p.days === o.days);
+  setRadio('xp', hit ? hit[0] : 'custom');
+}
+function updateExportUI() {
+  const o = readExport();
+  $('#xCustom').hidden = o.size !== 'custom';
+  $('#xDayLayout').disabled = o.days === 'none';
+  const pages = planPages(o, byDate()), n = { year: 0, month: 0, day: 0 };
+  pages.forEach(p => n[p.t]++);
+  const parts = [];
+  if (n.year) parts.push('1 year page');
+  if (n.month) parts.push(`${n.month} month page${n.month > 1 ? 's' : ''}`);
+  if (n.day) parts.push(`${n.day} day page${n.day > 1 ? 's' : ''}`);
+  const problem = paperProblem(o);
+  let paper = '';
+  if (!problem) {
+    const [w, h] = paperPts(o), wi = (w / IN).toFixed(w % IN ? 1 : 0).replace(/\.0$/, ''), hi = (h / IN).toFixed(h % IN ? 1 : 0).replace(/\.0$/, '');
+    paper = `${o.size === 'custom' ? 'Custom' : PAPER[o.size].name}, ${wi} × ${hi} in ${o.orient}`;
+  }
+  const box = $('#xSummary'), btn = $('#xGo');
+  if (!pages.length) {
+    box.innerHTML = o.days === 'events' && !o.year && !o.months ? `No days in ${esc(MONTHS[o.from])}–${esc(MONTHS[o.to])} have events yet. Add events or choose other pages.` : 'Choose at least one kind of page.';
+    btn.disabled = true; return;
+  }
+  if (problem) { box.textContent = problem; btn.disabled = true; return; }
+  btn.disabled = false;
+  const big = Math.min(...paperPts(o)) >= 22 * IN;
+  let sizeLine = '';
+  if (n.year) {
+    textK = TEXT_SCALE[o.textSize] || 1;
+    const g = yearGeometry(...paperPts(o), o), cap = pt => pt * .72 / IN;   // capital-letter height in inches
+    const fmtIn = v => v >= 1 ? `${v.toFixed(1)} in` : `${v.toFixed(2)} in`;
+    const ft = cap(g.evSz) * 10;  // signage rule of thumb: 1 in of letter height reads from about 10 ft
+    const dist = ft < 2 ? `about ${Math.max(6, Math.round(ft * 12))} in` : `about ${Math.round(ft)} ft`;
+    sizeLine = `<br>Year page text: dates ${fmtIn(cap(g.numSz))} tall, event titles ${fmtIn(cap(g.evSz))} tall. Event titles read from ${dist} away.`;
+  }
+  box.innerHTML = `<b>${pages.length} page${pages.length > 1 ? 's' : ''}</b>: ${esc(parts.join(' + '))}<br>${esc(paper)}${sizeLine}` +
+    (big && pages.length > 1 ? '<span class="warn">Large-format printers and print shops usually charge per sheet. For one big wall print, choose Wall calendar.</span>' : '') +
+    (n.day && n.day < 32 && o.days === 'events' ? '<span class="warn">Days without a page link to their month page when month pages are included.</span>' : '');
+  try { localStorage.setItem(XKEY, JSON.stringify(o)); } catch {}
+}
+$('#xPresets').addEventListener('change', e => {
+  const p = PRESETS[e.target.value]; if (!p) { updateExportUI(); return; }
+  $('#xYear').checked = p.year; $('#xMonths').checked = p.months; $('#xDays').value = p.days; $('#xFrom').value = 0; $('#xTo').value = 11;
+  updateExportUI();
+});
+$('#export').addEventListener('change', e => { if (!e.target.closest('#xPresets')) { if (e.target.closest('fieldset')?.querySelector('#xYear')) matchPreset(); updateExportUI(); } });
+$('#export').addEventListener('input', e => { if (e.target.type === 'number') updateExportUI(); });
+try { const saved = JSON.parse(localStorage.getItem(XKEY) || 'null'); if (saved) { writeExport({ ...readExport(), ...saved }); matchPreset(); } } catch {}
+
+$('#xGo').onclick = async () => {
+  const msg = $('#xMsg'), btn = $('#xGo');
+  if (!window.jspdf) { msg.textContent = 'The PDF tool didn’t load. Check your connection and reload the page.'; msg.className = 'msg err'; return; }
+  const o = readExport();
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Building PDF…';
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const doc = buildPDF(o), blob = doc.output('blob');
+    const kind = radioVal('xp'), sizeName = o.size === 'custom' ? `${o.cw}x${o.ch}${o.cu}` : o.size;
+    const name = `calendar-${S.year}-${kind === 'custom' ? 'custom' : kind}-${sizeName}-${o.orient}.pdf`;
+    const pages = doc.getNumberOfPages();
+    const dl = window.claude?.use ? await window.claude.use('downloads') : null;
+    if (dl) {
+      try { await dl.save({ filename: name, data: blob }); msg.textContent = `Saved ${name} (${pages} page${pages > 1 ? 's' : ''}).`; }
+      catch (err) { msg.textContent = err?.code === 'declined' ? 'Download cancelled.' : 'The download didn’t go through. Try again in a moment.'; if (err?.code !== 'declined') msg.className = 'msg err'; }
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      msg.textContent = `Downloading ${name} (${pages} page${pages > 1 ? 's' : ''}).`;
+    }
+  } catch (err) { console.error(err); msg.textContent = 'Something went wrong building the PDF.'; msg.className = 'msg err'; }
+  btn.disabled = false;
+};
+
+/* ---------- Outlook import / export (.ics and Outlook .csv) ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let renderQueued = false;
+function scheduleRender() { if (renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); }
+
+// Save or delete many events: local copy first, then the account a few at a time, backing off when rate-limited.
+async function writeMany(items, op, onProgress) {
+  if (!coll) return { failed: 0, quota: false };
+  let i = 0, done = 0, failed = 0, quota = false;
+  const worker = async () => {
+    while (i < items.length && !quota) {
+      const it = items[i++];
+      for (let attempt = 0; ; attempt++) {
+        try { op === 'set' ? await coll.doc(it.id).set({ ...it, kind: 'event' }) : await coll.doc(it).delete(); break; }
+        catch (err) {
+          if (err?.code === 'quota_exceeded') { quota = true; failed++; break; }
+          if ((err?.code === 'resource_exhausted' || err?.code === 'unavailable') && attempt < 5) { await sleep(400 * 2 ** attempt + Math.random() * 300); continue; }
+          failed++; break;
+        }
+      }
+      onProgress?.(++done, items.length);
+    }
+  };
+  await Promise.all(Array.from({ length: 4 }, worker));
+  return { failed: failed + (items.length - done), quota };
+}
+
+/* --- time zones: ICS times carry a zone (IANA or Windows name); show them in this computer's zone --- */
+const WIN_TZ = { 'Pacific Standard Time': 'America/Los_Angeles', 'Mountain Standard Time': 'America/Denver', 'US Mountain Standard Time': 'America/Phoenix',
+  'Central Standard Time': 'America/Chicago', 'Eastern Standard Time': 'America/New_York', 'Alaskan Standard Time': 'America/Anchorage', 'Hawaiian Standard Time': 'Pacific/Honolulu',
+  'Atlantic Standard Time': 'America/Halifax', 'GMT Standard Time': 'Europe/London', 'Greenwich Standard Time': 'Atlantic/Reykjavik', 'UTC': 'UTC', 'W. Europe Standard Time': 'Europe/Berlin',
+  'Romance Standard Time': 'Europe/Paris', 'Central Europe Standard Time': 'Europe/Budapest', 'Central European Standard Time': 'Europe/Warsaw', 'E. Europe Standard Time': 'Europe/Chisinau',
+  'India Standard Time': 'Asia/Kolkata', 'China Standard Time': 'Asia/Shanghai', 'Tokyo Standard Time': 'Asia/Tokyo', 'AUS Eastern Standard Time': 'Australia/Sydney',
+  'Singapore Standard Time': 'Asia/Singapore', 'New Zealand Standard Time': 'Pacific/Auckland', 'Mexico Standard Time': 'America/Mexico_City', 'Canada Central Standard Time': 'America/Regina' };
+const tzFmt = {};
+function tzOffset(t, zone) {
+  const f = tzFmt[zone] ||= new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const p = Object.fromEntries(f.formatToParts(new Date(t)).map(x => [x.type, x.value]));
+  return Date.UTC(+p.year, p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(t / 1000) * 1000;
+}
+function fromZone(y, mo, d, h, mi, tz) {
+  const zone = WIN_TZ[tz] || tz.replace(/^\/+/, '');
+  try { const guess = Date.UTC(y, mo, d, h, mi); let t = guess - tzOffset(guess, zone); const o2 = tzOffset(t, zone); t = guess - o2; return new Date(t); }
+  catch { return null; }
+}
+
+/* --- .ics reading --- */
+const icsUnescape = v => v.replace(/\\n/gi, '\n').replace(/\\([,;\\:])/g, '$1');
+function parseICSDate(v, params = {}) {
+  const m = String(v).trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+  if (!m) return null;
+  if (!m[4] || params.VALUE === 'DATE') return { d: new Date(+m[1], m[2] - 1, +m[3]), allDay: true };
+  let d = m[7] ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0))) : new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]);
+  if (!m[7] && params.TZID) d = fromZone(+m[1], m[2] - 1, +m[3], +m[4], +m[5], params.TZID) || d;
+  return { d, allDay: false };
+}
+function parseDuration(v) {
+  const m = v.match(/^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+  if (!m) return null;
+  return (m[1] === '-' ? -1 : 1) * ((+m[2] || 0) * 604800 + (+m[3] || 0) * 86400 + (+m[4] || 0) * 3600 + (+m[5] || 0) * 60 + (+m[6] || 0)) * 1000;
+}
+function parseICS(text) {
+  const lines = text.replace(/\r\n?/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const out = [], stack = []; let cur = null;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let ci = -1, q = false;
+    for (let j = 0; j < line.length; j++) { const ch = line[j]; if (ch === '"') q = !q; else if (ch === ':' && !q) { ci = j; break; } }
+    if (ci < 0) continue;
+    const [name, ...ps] = line.slice(0, ci).split(';'), value = line.slice(ci + 1), N = name.toUpperCase();
+    const params = {}; for (const p of ps) { const k = p.indexOf('='); if (k > 0) params[p.slice(0, k).toUpperCase()] = p.slice(k + 1).replace(/^"|"$/g, ''); }
+    if (N === 'BEGIN') { stack.push(value.trim().toUpperCase()); if (stack.at(-1) === 'VEVENT') cur = { exdates: [] }; continue; }
+    if (N === 'END') { if (stack.pop() === 'VEVENT' && cur) { out.push(cur); cur = null; } continue; }
+    if (!cur || stack.at(-1) !== 'VEVENT') continue;
+    switch (N) {
+      case 'SUMMARY': cur.title = icsUnescape(value).trim(); break;
+      case 'DESCRIPTION': cur.desc = icsUnescape(value).trim(); break;
+      case 'LOCATION': cur.loc = icsUnescape(value).trim(); break;
+      case 'CATEGORIES': cur.cats = (cur.cats || []).concat(value.split(/(?<!\\),/).map(x => icsUnescape(x).trim()).filter(Boolean)); break;
+      case 'UID': cur.uid = value.trim(); break;
+      case 'STATUS': cur.status = value.trim().toUpperCase(); break;
+      case 'DTSTART': cur.start = parseICSDate(value, params); break;
+      case 'DTEND': cur.end = parseICSDate(value, params); break;
+      case 'DURATION': cur.dur = parseDuration(value.trim()); break;
+      case 'RRULE': cur.rrule = Object.fromEntries(value.split(';').map(kv => { const [k, v] = kv.split('='); return [k.toUpperCase(), (v || '').toUpperCase()]; })); break;
+      case 'EXDATE': for (const v of value.split(',')) { const d = parseICSDate(v, params); if (d) cur.exdates.push(fmt(d.d)); } break;
+      case 'RECURRENCE-ID': cur.recid = parseICSDate(value, params); break;
+      case 'X-MICROSOFT-CDO-ALLDAYEVENT': if (/true/i.test(value)) cur.msAllDay = true; break;
+    }
+  }
+  return out;
+}
+const WD_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const utcDay = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+function expandRRule(v, fromKey, toKey, skip) {
+  const r = v.rrule, st = v.start.d, st0 = new Date(st.getFullYear(), st.getMonth(), st.getDate());
+  const interval = Math.max(1, +(r.INTERVAL || 1)), count = r.COUNT ? +r.COUNT : Infinity;
+  const until = r.UNTIL ? parseICSDate(r.UNTIL)?.d : null;
+  const byday = r.BYDAY ? r.BYDAY.split(',').map(x => { const m = x.match(/^([+-]?\d+)?(SU|MO|TU|WE|TH|FR|SA)$/); return m ? { n: m[1] ? +m[1] : 0, wd: WD_CODES.indexOf(m[2]) } : null; }).filter(Boolean) : null;
+  const bymd = r.BYMONTHDAY ? r.BYMONTHDAY.split(',').map(Number) : null;
+  const bymo = r.BYMONTH ? r.BYMONTH.split(',').map(Number) : null;
+  const setpos = r.BYSETPOS ? +r.BYSETPOS : null, wkst = WD_CODES.indexOf(r.WKST || 'MO');
+  const weekStart = d => utcDay(d) - ((d.getDay() - wkst + 7) % 7);
+  const ordOk = (b, d) => { const dom = d.getDate(), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return b.wd === d.getDay() && (b.n === 0 || b.n === Math.ceil(dom / 7) || b.n === -Math.ceil((last - dom + 1) / 7)); };
+  const mdOk = d => { const dom = d.getDate(), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); return bymd.some(x => x > 0 ? x === dom : last + x + 1 === dom); };
+  const setposOk = d => { // e.g. "last weekday of the month"
+    const y = d.getFullYear(), m = d.getMonth(), last = new Date(y, m + 1, 0).getDate(), hits = [];
+    for (let i = 1; i <= last; i++) { const x = new Date(y, m, i); if (byday.some(b => ordOk(b, x))) hits.push(i); }
+    return hits.at(setpos > 0 ? setpos - 1 : setpos) === d.getDate();
+  };
+  const matches = d => {
+    const mo = d.getMonth() + 1;
+    if (bymo && !bymo.includes(mo) && r.FREQ !== 'YEARLY') return false;
+    switch (r.FREQ) {
+      case 'DAILY': return (utcDay(d) - utcDay(st0)) % interval === 0 && (!byday || byday.some(b => b.wd === d.getDay()));
+      case 'WEEKLY': return ((weekStart(d) - weekStart(st0)) / 7) % interval === 0 && (byday ? byday.map(b => b.wd) : [st0.getDay()]).includes(d.getDay());
+      case 'MONTHLY': {
+        if (((d.getFullYear() - st0.getFullYear()) * 12 + d.getMonth() - st0.getMonth()) % interval) return false;
+        if (byday) return setpos ? setposOk(d) : byday.some(b => ordOk(b, d));
+        return bymd ? mdOk(d) : d.getDate() === st0.getDate();
+      }
+      case 'YEARLY': {
+        if ((d.getFullYear() - st0.getFullYear()) % interval) return false;
+        if (!(bymo || [st0.getMonth() + 1]).includes(mo)) return false;
+        if (byday) return setpos ? setposOk(d) : byday.some(b => ordOk(b, d));
+        return bymd ? mdOk(d) : d.getDate() === st0.getDate();
+      }
+    }
+    return false;
+  };
+  const out = [], end = parse(toKey); let n = 0;
+  for (let d = new Date(st0); d <= end; d.setDate(d.getDate() + 1)) {
+    if (!matches(d)) continue;
+    if (++n > count) break;
+    const occ = new Date(d.getFullYear(), d.getMonth(), d.getDate(), st.getHours(), st.getMinutes());
+    if (until && occ > until && fmt(d) > fmt(until)) break;
+    const k = fmt(d);
+    if (v.exdates.includes(k) || skip?.has(k)) continue;
+    if (k >= fromKey) out.push(occ);
+    if (out.length > 3000) break;
+  }
+  return out;
+}
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+// Turn one event start into calendar items (all-day events that span days get one item per day).
+function occurrenceItems(base, st, durMs, allDay, fromKey, toKey) {
+  const items = [];
+  if (allDay) {
+    const days = Math.min(62, Math.max(1, Math.round(durMs / 86400000)));
+    for (let i = 0; i < days; i++) { const k = addDays(fmt(st), i); if (k >= fromKey && k <= toKey) items.push({ ...base, date: k, allDay: true, start: '', end: '', uid: base.uid ? `${base.uid}|${k}` : '' }); }
+  } else {
+    const k = fmt(st); if (k < fromKey || k > toKey) return items;
+    const en = new Date(st.getTime() + Math.max(0, durMs));
+    const end = durMs <= 0 ? '' : fmt(en) === k ? hhmm(en) : '23:59';
+    items.push({ ...base, date: k, allDay: false, start: hhmm(st), end, uid: base.uid ? `${base.uid}|${k}` : '' });
+  }
+  return items;
+}
+function icsItems(vevents, fromKey, toKey) {
+  const overrides = new Map();
+  for (const v of vevents) if (v.recid && v.uid) { if (!overrides.has(v.uid)) overrides.set(v.uid, new Set()); overrides.get(v.uid).add(fmt(v.recid.d)); }
+  const items = []; let series = 0, cancelled = 0;
+  for (const v of vevents) {
+    if (!v.start) continue;
+    if (v.status === 'CANCELLED') { cancelled++; continue; }
+    const allDay = v.start.allDay || !!v.msAllDay;
+    const durMs = v.end ? v.end.d - v.start.d : v.dur ?? (allDay ? 86400000 : 0);
+    const base = { title: v.title || '(No title)', notes: [v.loc ? 'Location: ' + v.loc : '', v.desc || ''].filter(Boolean).join('\n'), cats: v.cats || [], uid: v.uid ? v.uid + (v.recid ? '#' + fmt(v.recid.d) : '') : '' };
+    if (v.rrule && !v.recid) {
+      series++;
+      for (const st of expandRRule(v, fromKey, toKey, overrides.get(v.uid))) items.push(...occurrenceItems(base, st, durMs, allDay, fromKey, toKey));
+    } else items.push(...occurrenceItems(base, v.start.d, durMs, allDay, fromKey, toKey));
+  }
+  return { items, series, cancelled };
+}
+
+/* --- Outlook .csv reading --- */
+function parseCSV(text) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim()));
+}
+function csvDate(s) {
+  const m = String(s || '').trim().match(/^(\d{1,4})[\/.-](\d{1,2})[\/.-](\d{1,4})/);
+  if (!m) return null;
+  let y, mo, d;
+  if (m[1].length === 4) [y, mo, d] = [+m[1], +m[2], +m[3]];
+  else { y = +m[3]; if (y < 100) y += 2000; [mo, d] = +m[1] > 12 ? [+m[2], +m[1]] : [+m[1], +m[2]]; }
+  const dt = new Date(y, mo - 1, d);
+  return isNaN(dt) ? null : dt;
+}
+function csvTime(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp])?/);
+  if (!m) return null;
+  let h = +m[1]; const ap = m[3]?.toUpperCase();
+  if (ap === 'P' && h < 12) h += 12; if (ap === 'A' && h === 12) h = 0;
+  return h * 60 + +m[2];
+}
+function csvItems(rows, fromKey, toKey) {
+  const head = rows[0].map(h => h.trim().toLowerCase()), col = n => head.indexOf(n);
+  const C = { subj: col('subject'), sd: col('start date'), st: col('start time'), ed: col('end date'), et: col('end time'), ad: col('all day event'), desc: col('description'), loc: col('location'), cat: col('categories') };
+  if (C.subj < 0 || C.sd < 0) throw new Error('csv-columns');
+  const items = [];
+  for (const r of rows.slice(1)) {
+    const sd = csvDate(r[C.sd]); if (!sd) continue;
+    const allDay = C.ad >= 0 && /^(true|yes|1|on)$/i.test((r[C.ad] || '').trim());
+    const ed = C.ed >= 0 ? csvDate(r[C.ed]) : null;
+    const base = { title: (r[C.subj] || '').trim() || '(No title)', notes: [C.loc >= 0 && r[C.loc]?.trim() ? 'Location: ' + r[C.loc].trim() : '', C.desc >= 0 ? (r[C.desc] || '').trim() : ''].filter(Boolean).join('\n'),
+      cats: C.cat >= 0 ? (r[C.cat] || '').split(';').map(x => x.trim()).filter(Boolean) : [], uid: '' };
+    if (allDay) {
+      const days = ed ? Math.max(1, Math.round(utcDay(ed) - utcDay(sd))) : 1;
+      items.push(...occurrenceItems(base, sd, days * 86400000, true, fromKey, toKey));
+    } else {
+      const sm = csvTime(C.st >= 0 ? r[C.st] : '') ?? 540, em = csvTime(C.et >= 0 ? r[C.et] : '');
+      const st = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate(), Math.floor(sm / 60), sm % 60);
+      let en = em == null ? null : new Date((ed || sd).getFullYear(), (ed || sd).getMonth(), (ed || sd).getDate(), Math.floor(em / 60), em % 60);
+      items.push(...occurrenceItems(base, st, en ? en - st : 0, false, fromKey, toKey));
+    }
+  }
+  return { items, series: 0, cancelled: 0 };
+}
+
+/* --- import flow --- */
+let olFile = null; // { name, kind: 'ics'|'csv', data }
+const LAST_IMPORT_KEY = 'yearplanner.lastImport';
+function contentKey(e) { return `k:${e.date}|${e.allDay ? '' : e.start}|${e.title.trim().toLowerCase()}`; }
+function planImport() {
+  const all = radioVal('olRange') === 'all', y = S.year;
+  const fromKey = all ? '1900-01-01' : `${y}-01-01`, toKey = all ? `${y + 1}-12-31` : `${y}-12-31`;
+  const res = olFile.kind === 'ics' ? icsItems(olFile.data, all ? `${y - 1}-01-01` : fromKey, toKey) : csvItems(olFile.data, fromKey, toKey);
+  // non-repeating events from any year when "everything" is chosen
+  if (all && olFile.kind === 'ics') {
+    const extra = icsItems(olFile.data.filter(v => !v.rrule), fromKey, '2999-12-31').items.filter(it => it.date < `${y - 1}-01-01` || it.date > toKey);
+    res.items.push(...extra);
+  }
+  const existing = new Set();
+  for (const e of Object.values(S.events)) { existing.add(contentKey(e)); if (e.uid) existing.add('u:' + e.uid); }
+  // holidays the planner already shows (e.g. from a file this planner exported) aren't imported again
+  if (S.prefs.hol.show) for (let hy = y - 1; hy <= y + 1; hy++) for (const [k, h] of holidays(hy)) existing.add(contentKey({ date: k, allDay: true, title: h.name }));
+  const fresh = [], seen = new Set(); let dupes = 0;
+  for (const it of res.items) {
+    const ks = [contentKey(it), ...(it.uid ? ['u:' + it.uid] : [])];
+    if (ks.some(k => existing.has(k) || seen.has(k))) { dupes++; continue; }
+    ks.forEach(k => seen.add(k)); fresh.push(it);
+  }
+  // categories -> event types
+  const match = $('#olMatch').checked, addNew = $('#olNewTypes').checked, defType = $('#olDefType').value;
+  const byName = new Map(S.prefs.types.map(t => [t.name.trim().toLowerCase(), t])), newTypes = new Map();
+  const palette = ['#e07a2f', '#2a9d8f', '#8e6bbf', '#3f8f5a', '#b5893b', '#c45b72', '#6b7f99', '#3d7fc1', '#9c6b3f'];
+  const used = new Set(S.prefs.types.map(t => t.color));
+  for (const it of fresh) {
+    let t = null;
+    if (match) for (const c of it.cats) { t = byName.get(c.toLowerCase()) || newTypes.get(c.toLowerCase()); if (t) break; }
+    if (!t && match && addNew && it.cats.length) {
+      const c = it.cats[0], color = palette.find(x => !used.has(x)) || palette[newTypes.size % palette.length]; used.add(color);
+      t = { id: 't' + Date.now().toString(36) + newTypes.size, name: c.slice(0, 40), color, shade: true };
+      newTypes.set(c.toLowerCase(), t);
+    }
+    it.type = t ? t.id : defType;
+    it.color = t ? t.color : (S.prefs.types.find(x => x.id === defType)?.color || '#5a6878');
+  }
+  return { ...res, fresh, dupes, newTypes: [...newTypes.values()] };
+}
+function showImportPreview() {
+  const box = $('#olSummary'), btn = $('#olGo');
+  let plan;
+  try { plan = planImport(); } catch (err) { box.textContent = 'This file couldn’t be read.'; btn.disabled = true; return; }
+  const n = plan.fresh.length, dates = plan.fresh.map(e => e.date).sort();
+  const span = n ? `${fmtShort(dates[0])} to ${fmtShort(dates.at(-1))}` : '';
+  const bits = [`<b>${n} event${n === 1 ? '' : 's'}</b> ready to import from ${esc(olFile.name)}${span ? ` (${span})` : ''}.`];
+  if (plan.series) bits.push(`${plan.series} repeating series ${plan.series === 1 ? 'was' : 'were'} filled in${radioVal('olRange') === 'all' ? ` for ${S.year - 1} to ${S.year + 1}` : ''}.`);
+  if (plan.dupes) bits.push(`${plan.dupes} already in your calendar will be skipped.`);
+  if (plan.cancelled) bits.push(`${plan.cancelled} cancelled meeting${plan.cancelled === 1 ? '' : 's'} left out.`);
+  if (plan.newTypes.length) bits.push(`New event types: ${plan.newTypes.map(t => esc(t.name)).join(', ')}.`);
+  if (!n) bits.push(radioVal('olRange') === 'year' ? `Nothing new falls in ${S.year}. Try "Everything in the file".` : 'Nothing new to add.');
+  box.innerHTML = bits.join(' ');
+  btn.disabled = !n; btn.textContent = n ? `Import ${n} event${n === 1 ? '' : 's'}` : 'Import';
+}
+const fmtShort = k => { const d = parse(k); return `${MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}, ${d.getFullYear()}`; };
+async function readImportFile(file) {
+  const msg = $('#olMsg'); msg.className = 'msg'; msg.textContent = '';
+  if (!file) return;
+  if (file.size > 25 * 1024 * 1024) { msg.textContent = 'That file is over 25 MB. Export a shorter date range from Outlook and try again.'; msg.className = 'msg err'; return; }
+  let text; try { text = await file.text(); } catch { msg.textContent = 'That file couldn’t be opened.'; msg.className = 'msg err'; return; }
+  try {
+    if (/BEGIN:VCALENDAR/i.test(text)) {
+      const ev = parseICS(text);
+      if (!ev.length) throw new Error('empty');
+      olFile = { name: file.name, kind: 'ics', data: ev };
+    } else {
+      const rows = parseCSV(text.replace(/^\uFEFF/, ''));
+      if (rows.length < 2) throw new Error('empty');
+      csvItems(rows.slice(0, 2), '1900-01-01', '2999-12-31');
+      olFile = { name: file.name, kind: 'csv', data: rows };
+    }
+  } catch (err) {
+    olFile = null; $('#olPreview').hidden = true;
+    msg.textContent = err.message === 'csv-columns'
+      ? 'This .csv doesn’t have Outlook’s calendar columns (Subject and Start Date). Export it from Outlook’s calendar, or use an .ics file.'
+      : 'No calendar events were found in that file. Choose an .ics or .csv file exported from Outlook.';
+    msg.className = 'msg err'; return;
+  }
+  $('#olDropHint').textContent = file.name;
+  $('#olRangeYear').textContent = `Only ${S.year}`;
+  const prevDef = $('#olDefType').value;
+  $('#olDefType').innerHTML = '<option value="">No type</option>' + S.prefs.types.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
+  $('#olDefType').value = S.prefs.types.some(t => t.id === prevDef) ? prevDef : '';
+  $('#olPreview').hidden = false;
+  showImportPreview();
+}
+async function runImport() {
+  const msg = $('#olMsg'), btn = $('#olGo');
+  const plan = planImport(); if (!plan.fresh.length) return;
+  btn.disabled = true;
+  if (plan.newTypes.length) setPref({ types: [...S.prefs.types, ...plan.newTypes] });
+  const batch = 'b' + Date.now().toString(36);
+  const evs = plan.fresh.map((it, i) => ({ id: 'o' + Date.now().toString(36) + i.toString(36) + Math.random().toString(36).slice(2, 6),
+    date: it.date, title: it.title.slice(0, 140), allDay: it.allDay, start: it.start, end: it.end, notes: it.notes.slice(0, 4000), type: it.type, color: it.color,
+    uid: it.uid, source: 'outlook', batch }));
+  for (const e of evs) S.events[e.id] = e;
+  lsWrite(); render();
+  try { localStorage.setItem(LAST_IMPORT_KEY, JSON.stringify({ batch, count: evs.length, name: olFile.name })); } catch {}
+  msg.className = 'msg';
+  msg.textContent = coll ? `Saving ${evs.length} events to your account…` : `Imported ${evs.length} events.`;
+  const r = await writeMany(evs, 'set', (d, t) => { msg.textContent = `Saving to your account… ${d} of ${t}`; });
+  if (r.quota) { msg.textContent = 'Your calendar storage is full, so some events weren’t saved to your account. Delete old events or import a shorter date range.'; msg.className = 'msg err'; }
+  else if (r.failed) { msg.textContent = `Imported ${evs.length - r.failed} events. ${r.failed} couldn’t be saved to your account; try importing the file again to add them.`; msg.className = 'msg err'; }
+  else msg.textContent = `Imported ${evs.length} event${evs.length === 1 ? '' : 's'} from ${olFile.name}.`;
+  showUndo(); showImportPreview(); updateOutlookExport();
+}
+function showUndo() {
+  let last = null; try { last = JSON.parse(localStorage.getItem(LAST_IMPORT_KEY) || 'null'); } catch {}
+  const n = last ? Object.values(S.events).filter(e => e.batch === last.batch).length : 0;
+  $('#olUndoWrap').hidden = !n;
+  if (n) $('#olUndo').textContent = `Undo last import (${n} event${n === 1 ? '' : 's'} from ${last.name})`;
+}
+async function undoImport() {
+  let last = null; try { last = JSON.parse(localStorage.getItem(LAST_IMPORT_KEY) || 'null'); } catch {}
+  if (!last) return;
+  const b = $('#olUndo');
+  if (!b.classList.contains('armed')) { b.classList.add('armed', 'danger'); b.textContent = 'Click again to remove those events'; return; }
+  b.classList.remove('armed', 'danger');
+  const ids = Object.values(S.events).filter(e => e.batch === last.batch).map(e => e.id);
+  ids.forEach(id => delete S.events[id]); lsWrite(); render();
+  const msg = $('#olMsg'); msg.className = 'msg'; msg.textContent = `Removing ${ids.length} events…`;
+  const r = await writeMany(ids, 'delete', (d, t) => { msg.textContent = `Removing… ${d} of ${t}`; });
+  msg.textContent = r.failed ? `Removed ${ids.length - r.failed} events. ${r.failed} couldn’t be removed from your account; try Undo again.` : `Removed ${ids.length} imported events.`;
+  if (!r.failed) try { localStorage.removeItem(LAST_IMPORT_KEY); } catch {}
+  showUndo(); if (olFile) showImportPreview();
+}
+
+/* --- export --- */
+const icsEscape = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1');
+function icsFold(line) {
+  const out = []; let cur = '', bytes = 0;
+  for (const ch of line) { const b = new TextEncoder().encode(ch).length; if (bytes + b > 74) { out.push(cur); cur = ' '; bytes = 1; } cur += ch; bytes += b; }
+  out.push(cur); return out.join('\r\n');
+}
+const icsDate = k => k.replace(/-/g, '');
+const icsUTC = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+function splitLocation(notes) { const m = String(notes || '').match(/^Location: (.*)(?:\n|$)/); return m ? { loc: m[1], desc: notes.slice(m[0].length) } : { loc: '', desc: notes || '' }; }
+function exportList() {
+  const scope = radioVal('olScope'), skip = $('#olSkipOutlook').checked;
+  return Object.values(S.events).filter(e => (scope === 'all' || e.date.startsWith(S.year + '-')) && !(skip && e.source === 'outlook'))
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || (a.start || '').localeCompare(b.start || ''));
+}
+function exportHolidays() {
+  if (!$('#olHol').checked || !S.prefs.hol.show) return [];
+  const years = radioVal('olScope') === 'all' ? [...new Set(Object.values(S.events).map(e => +e.date.slice(0, 4)).concat(S.year))] : [S.year];
+  return years.flatMap(y => [...holidays(y)].map(([k, h]) => ({ date: k, name: h.name })));
+}
+function timedRange(e) {
+  const [y, m, d] = e.date.split('-').map(Number), sm = toMin(e.start) ?? 540, em = toMin(e.end);
+  const st = new Date(y, m - 1, d, Math.floor(sm / 60), sm % 60);
+  const en = em != null && em > sm ? new Date(y, m - 1, d, Math.floor(em / 60), em % 60) : new Date(st.getTime() + 3600000);
+  return [st, en];
+}
+function buildICS(list, hols) {
+  const stamp = icsUTC(new Date()), L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Year Planner//Calendar Export//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${icsEscape('Year Planner ' + (radioVal('olScope') === 'all' ? '' : S.year)).trim()}`];
+  for (const e of list) {
+    const { loc, desc } = splitLocation(e.notes), t = typeOf(e);
+    L.push('BEGIN:VEVENT', `UID:${e.id}@year-planner`, `DTSTAMP:${stamp}`);
+    if (e.allDay) L.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(e.date, 1))}`, 'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE', 'TRANSP:TRANSPARENT');
+    else { const [st, en] = timedRange(e); L.push(`DTSTART:${icsUTC(st)}`, `DTEND:${icsUTC(en)}`, 'TRANSP:OPAQUE', 'X-MICROSOFT-CDO-BUSYSTATUS:BUSY'); }
+    L.push(`SUMMARY:${icsEscape(e.title)}`);
+    if (desc.trim()) L.push(`DESCRIPTION:${icsEscape(desc.trim())}`);
+    if (loc) L.push(`LOCATION:${icsEscape(loc)}`);
+    if (t) L.push(`CATEGORIES:${icsEscape(t.name)}`);
+    L.push('END:VEVENT');
+  }
+  for (const h of hols) L.push('BEGIN:VEVENT', `UID:holiday-${icsDate(h.date)}-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}@year-planner`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${icsDate(h.date)}`,
+    `DTEND;VALUE=DATE:${icsDate(addDays(h.date, 1))}`, `SUMMARY:${icsEscape(h.name)}`, 'CATEGORIES:Holiday', 'TRANSP:TRANSPARENT', 'X-MICROSOFT-CDO-ALLDAYEVENT:TRUE', 'X-MICROSOFT-CDO-BUSYSTATUS:FREE', 'END:VEVENT');
+  L.push('END:VCALENDAR');
+  return L.map(icsFold).join('\r\n') + '\r\n';
+}
+function buildOutlookCSV(list, hols) {
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const d8 = dt => `${dt.getMonth() + 1}/${dt.getDate()}/${dt.getFullYear()}`;
+  const t12 = dt => { let h = dt.getHours(); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${pad(dt.getMinutes())}:00 ${ap}`; };
+  const rows = [['Subject', 'Start Date', 'Start Time', 'End Date', 'End Time', 'All day event', 'Reminder on/off', 'Categories', 'Description', 'Location', 'Show time as']];
+  for (const e of list) {
+    const { loc, desc } = splitLocation(e.notes), cat = typeOf(e)?.name || '';
+    if (e.allDay) rows.push([e.title, d8(parse(e.date)), '', d8(parse(addDays(e.date, 1))), '', 'True', 'False', cat, desc.trim(), loc, '0']);
+    else { const [st, en] = timedRange(e); rows.push([e.title, d8(st), t12(st), d8(en), t12(en), 'False', 'False', cat, desc.trim(), loc, '2']); }
+  }
+  for (const h of hols) rows.push([h.name, d8(parse(h.date)), '', d8(parse(addDays(h.date, 1))), '', 'True', 'False', 'Holiday', '', '', '0']);
+  return '\uFEFF' + rows.map(r => r.map(q).join(',')).join('\r\n') + '\r\n';
+}
+function updateOutlookExport() {
+  const list = exportList(), hols = exportHolidays(), fromOutlook = Object.values(S.events).filter(e => e.source === 'outlook').length;
+  $('#olScopeYear').textContent = `${S.year} only`;
+  $('#olSkipOutlook').closest('label').hidden = !fromOutlook;
+  const n = list.length + hols.length;
+  $('#olExpSummary').innerHTML = n ? `<b>${list.length} event${list.length === 1 ? '' : 's'}</b>${hols.length ? ` and ${hols.length} holidays` : ''} will be in the file.` : 'There are no events to export yet. Add events, or include holidays.';
+  $('#olExpGo').disabled = !n;
+}
+// A .zip that holds one file, stored without compression (so Windows and macOS open it natively).
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) { c ^= bytes[i]; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); } return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipOne(name, data) {
+  const nm = new TextEncoder().encode(name), crc = crc32(data), now = new Date();
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate(), dosTime = (now.getHours() << 11) | (now.getMinutes() << 5);
+  const loc = new DataView(new ArrayBuffer(30)), cen = new DataView(new ArrayBuffer(46)), end = new DataView(new ArrayBuffer(22));
+  [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, dosTime, 2], [12, dosDate, 2], [14, crc, 4], [18, data.length, 4], [22, data.length, 4], [26, nm.length, 2], [28, 0, 2]]
+    .forEach(([o, v, s]) => s === 4 ? loc.setUint32(o, v, true) : loc.setUint16(o, v, true));
+  [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, dosTime, 2], [14, dosDate, 2], [16, crc, 4], [20, data.length, 4], [24, data.length, 4], [28, nm.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, 0, 4]]
+    .forEach(([o, v, s]) => s === 4 ? cen.setUint32(o, v, true) : cen.setUint16(o, v, true));
+  const cenOff = 30 + nm.length + data.length;
+  [[0, 0x06054b50, 4], [4, 0, 2], [6, 0, 2], [8, 1, 2], [10, 1, 2], [12, 46 + nm.length, 4], [16, cenOff, 4], [20, 0, 2]]
+    .forEach(([o, v, s]) => s === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true));
+  return new Blob([loc.buffer, nm, data, cen.buffer, nm, end.buffer], { type: 'application/zip' });
+}
+async function saveFile(name, blob) {
+  const dl = window.claude?.use ? await window.claude.use('downloads') : null;
+  if (!dl) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); return 'saved'; }
+  await dl.save({ filename: name, data: blob }); return 'saved';
+}
+async function runOutlookExport() {
+  const msg = $('#olExpMsg'), btn = $('#olExpGo'), fmtSel = radioVal('olFmt');
+  const list = exportList(), hols = exportHolidays(), tag = radioVal('olScope') === 'all' ? 'all' : String(S.year);
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = '';
+  try {
+    if (fmtSel === 'csv') {
+      await saveFile(`calendar-${tag}-outlook.csv`, new Blob([buildOutlookCSV(list, hols)], { type: 'text/csv' }));
+      msg.textContent = `Saved calendar-${tag}-outlook.csv.`;
+    } else {
+      const name = `calendar-${tag}.ics`, bytes = new TextEncoder().encode(buildICS(list, hols));
+      try { await saveFile(name, new Blob([bytes], { type: 'text/calendar' })); msg.textContent = `Saved ${name}.`; }
+      catch (err) {
+        if (err?.code !== 'rejected_extension' && err?.code !== 'extension_not_enabled') throw err;
+        await saveFile(`calendar-${tag}-ics.zip`, zipOne(name, bytes));
+        msg.textContent = `Saved calendar-${tag}-ics.zip. This page can't download .ics files directly, so the calendar file is inside the .zip: open the .zip, then add ${name} to Outlook.`;
+      }
+    }
+  } catch (err) {
+    msg.textContent = err?.code === 'declined' ? 'Download cancelled.' : 'The download didn’t go through. Try again in a moment.';
+    if (err?.code !== 'declined') msg.className = 'msg err';
+  }
+  btn.disabled = false;
+}
+
+/* --- wiring --- */
+$('#openOutlook').onclick = () => { $('#olMsg').textContent = ''; $('#olExpMsg').textContent = ''; showUndo(); updateOutlookExport(); if (olFile) showImportPreview(); open('outlook'); };
+$$('input[name=olTab]').forEach(i => i.onchange = () => { $('#olImport').hidden = radioVal('olTab') !== 'import'; $('#olExport').hidden = radioVal('olTab') !== 'export'; updateOutlookExport(); showUndo(); });
+$('#olFile').onchange = e => readImportFile(e.target.files[0]);
+const drop = $('#olDrop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => readImportFile(e.dataTransfer.files[0]));
+$('#olPreview').addEventListener('change', e => { if (e.target.id !== 'olGo') showImportPreview(); });
+$('#olGo').onclick = runImport;
+$('#olUndo').onclick = undoImport;
+$('#olExport').addEventListener('change', updateOutlookExport);
+$('#olExpGo').onclick = runOutlookExport;
+
+window.addEventListener('hashchange', route);
+window.__planner = { S, buildPDF, render, planPages, readExport, writeExport, updateExportUI, holidays };
+initStore().then(() => { syncSettingsUI(); applyPrefs(); });
+syncSettingsUI(); applyPrefs(); route();
+})();
+</script>
+
+</body>
+</html>
