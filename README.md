@@ -43,3 +43,7 @@ It loads [jsPDF](https://github.com/parallax/jsPDF) from cdnjs for PDF export an
 3. Under **Build and deployment**, choose **Deploy from a branch**.
 4. Pick the `main` branch and the `/ (root)` folder, then save.
 5. Your copy will be live at `https://<your-username>.github.io/calendar/` within a minute or two.
+
+## License
+
+[MIT](LICENSE). You can use, copy, change, and share this tool freely, including for commercial use, as long as you keep the copyright and license notice.
